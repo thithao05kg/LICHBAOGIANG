@@ -1,0 +1,385 @@
+<style>
+:root {
+    --primary: #1a73e8;
+    --primary-hover: #155cb4;
+    --success: #2e7d32;
+    --success-hover: #1b5e20;
+    --danger: #d32f2f;
+    --neutral: #37474f;
+    --neutral-hover: #263238;
+    --accent: #6a1b9a;
+    --text: #202124;
+    --text-muted: #5f6368;
+    --bg: #f1f3f4;
+    --border: #dadce0;
+    --radius: 4px;
+    --radius-md: 8px;
+    --shadow: 0 1px 3px rgba(60,64,67,0.3), 0 1px 2px rgba(60,64,67,0.15);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100%;
+    height: 100%;
+    overflow: auto !important; /* 🌟 Đổi từ hidden thành auto để chương trình chính cuộn bình thường */
+    background-color: #f0f2f5;
+}
+
+body {
+    color: var(--text);
+    font-family: "Segoe UI", -apple-system, sans-serif;
+    line-height: 1.5;
+}
+/* ==========================================================================
+   ỨNG DỤNG HEADER
+   ========================================================================== */
+.app-container { 
+    width: 100% !important; 
+    max-width: 100% !important; 
+    margin: 20px 0; 
+    padding: 0 10px;        /* Tạo một chút khoảng đệm nhỏ 2 bên rìa cho dễ nhìn */
+    display: flex; 
+    flex-direction: column; 
+    gap: 20px; 
+}
+.header-container { 
+    width: 100% !important; 
+    max-width: 100% !important; 
+    margin: 0; 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    flex-wrap: wrap; 
+    gap: 12px; 
+}
+.brand-info h1 { font-size: 24px; font-weight: 600; }
+.brand-info p { font-size: 14px; opacity: 0.85; }
+.system-info { display: flex; gap: 15px; font-size: 13px; }
+.system-info .badge { background: rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 20px; }
+
+/* ==========================================================================
+   BỐ CỤC CHÍNH (LAYOUT)
+   ========================================================================== */
+.app-container { max-width: 1400px; margin: 20px auto; padding: 0 16px; display: flex; flex-direction: column; gap: 20px; }
+.config-grid { display: grid; grid-template-columns: 1.6fr 1fr; gap: 20px; overflow: visible !important; }
+.form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; overflow: visible !important; }
+.form-grid-ppct { display: flex; flex-direction: column; gap: 12px; }
+.col-span-2-md { grid-column: span 2; }
+
+/* Thẻ hiển thị (Card) */
+.card { background: #fff; border: 1px solid var(--border); border-radius: var(--radius-md); box-shadow: var(--shadow); overflow: visible !important; }
+.card-header { padding: 12px 16px; background: #f8f9fa; border-bottom: 1px solid var(--border); font-weight: 600; color: var(--neutral); display: flex; align-items: center; gap: 8px; }
+.card-body { padding: 16px; overflow: visible !important; }
+
+/* Biểu mẫu (Form Control) */
+.form-group { display: flex; flex-direction: column; gap: 6px; }
+.form-group label { font-size: 14px; color: var(--text-muted); font-weight: 500; }
+.form-control { 
+    width: 100% !important; 
+    box-sizing: border-box !important;
+    height: 38px; 
+    padding: 6px 12px; 
+    border: 1px solid var(--border); 
+    border-radius: var(--radius); 
+    outline: none; 
+    font-size: 14px; 
+    font-weight: 500; 
+}
+
+/* Đảm bảo nút Đăng nhập cũng dãn full chiều rộng của thẻ trắng */
+.btn-login-submit {
+    width: 100% !important;
+    box-sizing: border-box !important;
+}
+.form-control:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(26,115,232,0.15); }
+.text-center { text-align: center; }
+
+/* Nhóm hàng & Tiện ích mở rộng thời gian */
+.range-group { display: flex; align-items: center; gap: 8px; }
+.range-split { font-size: 13px; color: var(--text-muted); font-style: italic; }
+.time-flex-container { display: flex; gap: 15px; align-items: flex-end; flex-wrap: wrap; width: 100%; }
+.time-flex-item { flex: 1; min-width: 120px; }
+.action-btn-group { display: flex; gap: 10px; flex-wrap: wrap; }
+
+/* Trạng thái Ẩn/Hiện Ma trận và Menu Dropdown Buổi học */
+.text-danger-group label { color: var(--danger); font-weight: 600; }
+.control-danger { border-color: #f5c6cb; background-color: #fff6f6; color: var(--danger); }
+.custom-dropdown-button { display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 8px 12px; font-size: 13.5px; }
+.custom-dropdown-button::after { content: "▼"; font-size: 10px; color: var(--danger); }
+.custom-dropdown-content { display: none; position: absolute; bottom: calc(100% + 4px); left: 0; width: 100%; min-width: 320px; background: #fff; border: 1px solid #f5c6cb; border-radius: var(--radius); box-shadow: 0 8px 24px rgba(0,0,0,0.18); z-index: 99999 !important; padding: 12px; }
+.custom-dropdown-content.show { display: block; }
+
+.matrix-grid-title { font-size: 11px; font-weight: bold; color: #555; text-align: center; margin-bottom: 8px; }
+.matrix-table { width: 100%; border-collapse: collapse; background: #fff; }
+.matrix-table th, .matrix-table td { border: 1px solid var(--border); text-align: center; padding: 6px; font-size: 13px; }
+.matrix-table th, .matrix-session-title { background: #f8f9fa; font-weight: 600; color: var(--text-muted); }
+.matrix-table input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-color: var(--danger); vertical-align: middle; }
+
+/* Nút bấm (Buttons) */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 38px; padding: 0 16px; font-size: 13px; border-radius: var(--radius); border: 1px solid transparent; cursor: pointer; font-weight: 500; transition: all 0.2s; white-space: nowrap; }
+.btn-primary { background: var(--primary); color: #fff; }
+.btn-primary:hover { background: var(--primary-hover); }
+.btn-success { background: var(--success); color: #fff; }
+.btn-success:hover { background: var(--success-hover); }
+.btn-danger { background: var(--danger); color: #fff; }
+.btn-danger:hover { background: #b71c1c; }
+.btn-neutral { background: var(--neutral); color: #fff; }
+.btn-neutral:hover { background: var(--neutral-hover); }
+.btn-accent { background: var(--accent); color: #fff; }
+.btn-accent:hover { background: #4a148c; }
+.btn-secondary-outline { border-color: var(--border); color: var(--neutral); background: transparent; }
+.btn-secondary-outline:hover { background: #f1f3f4; }
+
+/* Thanh công cụ và trạng thái */
+.app-toolbar { background: #fff; border: 1px solid var(--border); border-radius: var(--radius-md); padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; gap: 16px; box-shadow: var(--shadow); }
+.toolbar-left, .toolbar-right { display: flex; gap: 10px; flex-wrap: wrap; }
+.status-wrapper { background: #e8f0fe; border-left: 4px solid var(--primary); padding: 8px 16px; font-size: 13.5px; display: flex; gap: 6px; }
+.status-title { font-weight: 600; color: #155cb4; }
+
+/* Khung chứa lưới */
+.grid-wrapper { padding: 8px; background: #fff; }
+#grid { width: 100%; min-height: 550px; background: #fff; }
+
+/* Đóng gói hiệu ứng Loading Spinner */
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+#loadingOverlay { position: fixed; inset: 0; background: rgba(255,255,255,0.7); z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 15px; }
+.spinner { width: 50px; height: 50px; border: 5px solid #f3f3f3; border-top: 5px solid var(--primary); border-radius: 50%; animation: spin 1s linear infinite; }
+
+/* ==========================================================================
+   CẤU HÌNH CHO LƯỚI HANDSONTABLE (BÁO GIẢNG & TIÊU ĐỀ CHUẨN EXCEL)
+   ========================================================================== */
+/* 🌟 Tiêu đề cột màu xám nhạt nhẹ nhàng, dịu mắt (Chuẩn Excel) */
+.handsontable th {
+    background-color: #e9ecef !important; 
+    color: #495057 !important;            
+    font-weight: 600 !important;          
+    font-size: 14px !important;           
+    vertical-align: middle !important;    
+    padding: 7px 0 !important;            
+}
+
+/* 🌟 Khống chế giảm chiều cao các dòng dữ liệu mảnh, gọn gàng, bao quát tốt */
+/* 🌟 KHỐNG CHẾ CHIỀU CAO DÒNG VÀ ÉP CĂN GIỮA DỌC HOÀN HẢO */
+/* 🌟 ÉP TOÀN BỘ CẤU TRÚC LƯỚI PHẢI NHẬN CHIỀU CAO 18PX */
+.handsontable th,
+.handsontable td,
+.handsontable tr {
+    height: 21px !important;         /* Khống chế cứng chiều cao hàng */
+    line-height: 21px !important;    /* Ép chữ luôn nằm chính giữa dọc */
+    padding: 0 !important;           /* Triệt tiêu hoàn toàn padding bọc ngoài */
+    font-size: 14px !important;    /* Thu nhỏ chữ một chút để vừa vặn khung 18px */
+    color: #212529 !important;
+    vertical-align: middle !important;
+}
+
+/* Khống chế chiều cao dòng tiêu đề hàng (Row Headers) */
+.handsontable rowHeader {
+    height: 21px !important;
+    line-height: 21px !important;
+}
+
+/* Định dạng các đường viền bao quanh ô tiêu đề và ô lưới */
+.handsontable th, .handsontable td {
+    border-right: 1px solid #d1d1d6 !important;
+    
+}
+
+/* 🌟 Hạ độ dày mỏng và làm nhạt đường viền phân tách kết thúc mỗi buổi học */
+.handsontable td.border-buoi {
+    border-bottom: 1px solid #d1d1d6 !important;
+}
+
+/* Hiệu ứng đổi màu nhẹ khi bấm chọn cột tiêu đề */
+.handsontable th.active {
+    background-color: #dee2e6 !important; 
+    color: #212529 !important;
+}
+
+/* Khóa cấu trúc màu xám nền chuyên nghiệp cho ô ReadOnly */
+.handsontable .htDimPanel {
+    background-color: rgba(0, 0, 0, 0.03) !important;
+}
+
+/* Lớp bổ trợ trình biên dịch danh sách Dropdown của Handsontable */
+.handsontableEditor, .autocompleteEditor {
+    z-index: 99999999 !important; 
+}
+/* 🌟 ĐỒNG BỘ CĂN GIỮA CHO CÁC MŨI TÊN DROPDOWN/AUTOCOMPLETE */
+.handsontable .htAutocompleteArrow {
+    color: var(--primary) !important;
+    width: 24px !important;
+    height: 21px !important;         /* Khống chế chiều cao mũi tên bằng chiều cao dòng */
+    line-height: 21px !important;    /* Căn giữa dọc mũi tên tam giác xanh */
+    cursor: pointer !important;
+}
+
+/* Đảm bảo ô kiểm checkbox Nghỉ cũng nằm chính giữa dòng 18px */
+.handsontable .htCheckboxRendererInput {
+    margin-top: 0 !important;
+    width: 14px !important;          /* Thu nhỏ nhẹ checkbox để vừa vặn khung 18px */
+    height: 14px !important;
+    vertical-align: middle !important;
+}
+
+/* ==========================================================================
+   GIAO DIỆN FORM ĐĂNG NHẬP (LOGIN SCREEN)
+   ========================================================================== */
+.login-wrapper {
+    position: fixed; /* Ghim cứng toàn màn hình ảo của iframe */
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: #f0f2f5 !important;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden !important; /* 🌟 Chỉ khóa thanh cuộn riêng ở màn hình đăng nhập này */
+    z-index: 10000;
+    box-sizing: border-box;
+}
+.login-card {
+    background: white !important;
+    width: 100%;
+    max-width: 400px; /* Khóa độ rộng form vừa vặn, đẹp mắt */
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    overflow: hidden;
+
+}
+.login-header {
+    background: #1a73e8;
+    color: white;
+    padding: 15px 20px;
+    text-align: center;
+}
+.login-header h3 { margin: 0; font-size: 20px; }
+.login-form-body { padding: 20px; }
+.input-group-custom { margin-bottom: 15px; }
+.input-group-custom label { display: block; font-weight: bold; margin-bottom: 5px; color: #333; font-size: 14px; }
+.btn-login-submit { width: 100%; padding: 12px; background: #1a73e8; color: white; border: none; border-radius: 4px; font-size: 16px; font-weight: bold; cursor: pointer; transition: background 0.3s; }
+.btn-login-submit:hover { background: #1557b0; }
+
+/* ==========================================================================
+   TỐI ƯU RESPONSIVE TRÊN THIẾT BỊ DI ĐỘNG (MOBILE / TABLET)
+   ========================================================================== */
+@media (max-width: 1024px) { 
+    .config-grid { grid-template-columns: 1fr; } 
+}
+
+@media (max-width: 768px) {
+    /* Ép khung chứa lưới không cắt cụt danh sách sổ xuống khi mở listbox */
+    .grid-wrapper, .card, .card-body {
+        overflow: visible !important;
+    }
+    
+    /* Ép thanh công cụ toolbar chính thành khối dọc tự nhiên chống tràn nút */
+    .app-toolbar { 
+        flex-direction: column !important; 
+        align-items: stretch !important; 
+        padding: 10px !important;
+        gap: 12px !important;
+    } 
+    
+    /* Chia các nhóm nút hành động thành 2 cột đều nhau trên Mobile */
+    .toolbar-left, .toolbar-right { 
+        display: grid !important;
+        grid-template-columns: repeat(2, 1fr) !important; 
+        gap: 8px !important;
+        width: 100% !important;
+    } 
+
+    .toolbar-left .btn, .toolbar-right .btn {
+        width: 100% !important;
+        height: 40px !important; 
+        padding: 0 8px !important;
+        font-size: 12px !important; 
+        white-space: normal !important; 
+        text-align: center !important;
+    }
+
+    /* Ép vùng chức năng Quản trị chiếm trọn chiều ngang màn hình di động */
+    #vungAdminCapLaiMk {
+        grid-column: span 2 !important; 
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+    #vungAdminCapLaiMk > div {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 8px !important;
+        width: 100% !important;
+    }
+    #cboGvCapLaiMk {
+        max-width: 100% !important;
+        width: 100% !important;
+    }
+}
+
+@media (max-width: 576px) { 
+    /* Chuyển Grid thông tin cấu hình thành khối dọc tự nhiên tránh lệch dòng */
+    .form-grid { 
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 12px !important;
+        overflow: visible !important;
+    } 
+    
+    .col-span-2-md { 
+        grid-column: unset !important; 
+    } 
+    
+    /* Co gọn khu vực chọn Tuần học (Số tuần / Từ ngày / Đến ngày) */
+    .time-flex-container {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 10px !important;
+    }
+    .time-flex-item {
+        max-width: 100% !important;
+        width: 100% !important;
+    }
+}
+/* ==========================================================================
+   ÉP KHỬ THANH CUỘN (SCROLLBAR) VÀ HIỂN THỊ ĐẦY ĐỦ DANH SÁCH DROPDOWN HANDSONTABLE
+   ========================================================================== */
+.handsontableChooseRow, 
+.htDropdownMenu,
+.htSelectEditor {
+    max-height: none !important; /* Bỏ giới hạn chiều cao tối đa */
+    height: auto !important;     /* Tự động co giãn theo số lượng phần tử */
+    overflow-y: visible !important; /* Cho phép hiển thị tràn ra ngoài, không sinh thanh cuộn dọc */
+}
+
+/* Khử thanh cuộn của danh sách lựa chọn Handsontable mặc định */
+.htAutocompleteHolder {
+    max-height: none !important;
+    height: auto !important;
+    overflow: visible !important;
+}
+
+.htAutocompleteHolder .wtHolder {
+    max-height: none !important;
+    height: auto !important;
+    overflow-y: visible !important; /* Triệt tiêu thanh cuộn dọc bên phải */
+}
+/* Các đoạn CSS cũ của bạn trong file Style.html giữ nguyên... */
+
+.font-weight-bold { font-weight: bold !important; }
+#gridPPCT .handsontable td.font-weight-bold { background-color: #fff9db !important; color: #b15000 !important; }
+.ppct-title-label { font-size: 13px; font-weight: bold; color: #1a365d; margin: 12px 0 6px 0; border-left: 3px solid #1a73e8; padding-left: 6px; }
+
+/* Cấu hình giao diện nút tinh giản, gọn gàng */
+.btn-tight { height: 36px !important; padding: 0 12px !important; font-size: 12px !important; font-weight: 600 !important; border-radius: 4px !important; white-space: nowrap !important; cursor: pointer; border: 1px solid #ced4da; background-color: #ffffff; color: #495057; }
+.btn-tight:hover { background-color: #f1f3f5; }
+
+/* Nút mang tính chất lưu/chốt dữ liệu giữ tone nhẹ nhàng */
+.btn-tight-action { background-color: #495057 !important; color: #ffffff !important; border: none !important; }
+.btn-tight-action:hover { background-color: #343a40 !important; }
+
+.select-tight { height: 36px !important; font-size: 12px !important; padding: 0 6px !important; border-radius: 4px !important; border: 1px solid #ced4da; background-color: #ffffff; color: #495057; }
+</style>
