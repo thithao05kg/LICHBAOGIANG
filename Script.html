@@ -1,0 +1,1432 @@
+<script>
+  let hotInstance = null;
+  let hotPPCTInstance = null; 
+  let nguonDuLieuForm = { namHoc: [], banDoHeThong: {}, monHoc: [], lopHoc: [] };
+
+  // 🚀 TỐI ƯU HIỆU NĂNG PHÍA CLIENT: Gom cụm phần tử DOM để tái sử dụng
+  const DOM = {
+    status: document.getElementById("status"),
+    loadingOverlay: document.getElementById("loadingOverlay"),
+    loadingText: document.getElementById("loadingText"),
+    namhoc: document.getElementById("namhoc"),
+    truonghoc: document.getElementById("truonghoc"),
+    giaovien: document.getElementById("giaovien"),
+    tuan: document.getElementById("tuan"),
+    ngaybatdau: document.getElementById("ngaybatdau"),
+    tettu: document.getElementById("tettu"),
+    tetden: document.getElementById("tetden"),
+    tuan_tungay: document.getElementById("tuan_tungay"),
+    tuan_denngay: document.getElementById("tuan_denngay"),
+    monhoc_cbo: document.getElementById("monhoc_cbo"),
+    khoihoc_cbo: document.getElementById("khoihoc_cbo"),
+    cboAnBuoiLabel: document.getElementById("cboAnBuoiLabel"),
+    cboAnBuoiMenu: document.getElementById("cboAnBuoiMenu"),
+    printPreviewContainer: document.getElementById("printPreviewContainer"),
+    fileInputPPCT: document.getElementById("fileInputPPCT"),
+    modalDoiMatKhau: document.getElementById("modalDoiMatKhau"),
+    txtTimKiemLuoi: document.getElementById("txtTimKiemLuoi"),
+    btnCapNhat: document.getElementById("btCapNhat"),
+    // DOM khối Admin
+    vungAdminCapLaiMk: document.getElementById("vungAdminCapLaiMk"),
+    cboGvCapLaiMk: document.getElementById("cboGvCapLaiMk"),
+    btCapLaiMkAdmin: document.getElementById("btCapLaiMkAdmin"),
+    cboGvXoaAdmin: document.getElementById("cboGvCapLaiMk"),
+  btXoaGvAdmin: document.getElementById("btXoaGvAdmin"),
+    // DOM Màn hình đăng nhập
+    loginScreen: document.getElementById("loginScreen"),
+    appMainForm: document.getElementById("appMainForm"),
+    loginNam: document.getElementById("login_nam"),
+    loginTruong: document.getElementById("login_truong"),
+    loginGv: document.getElementById("login_gv"),
+    loginPass: document.getElementById("login_pass"),
+    chkNhoDangNhap: document.getElementById("chkNhoDangNhap")
+  };
+
+  // --- 1. KHỞI TẠO HỆ THỐNG VÀ ĐỒNG BỘ DANH MỤC BAN ĐẦU ---
+  document.addEventListener("DOMContentLoaded", function() {
+    DOM.status.innerText = "Đang đồng bộ dữ liệu hệ thống từ máy chủ...";
+       
+    // Ẩn mặc định các nút/vùng Quản trị ngay khi tải trang để đảm bảo an toàn phân quyền
+    if (DOM.btnCapNhat) DOM.btnCapNhat.style.display = "none";
+    if (DOM.vungAdminCapLaiMk) DOM.vungAdminCapLaiMk.style.display = "none";
+
+    // Khởi tạo lịch Flatpickr tiếng Việt
+    flatpickr("#ngaybatdau, #tettu, #tetden", {
+      dateFormat: "d/m/Y", 
+      allowInput: true,    
+      locale: "vn",
+      disableMobile: true /* Ép điện thoại dùng chung lịch web, hiển thị chuẩn chuỗi ngày dd/MM/yyyy */
+    });
+
+    // Xử lý đóng/mở dropdown ẩn hiện buổi dạy
+    if (DOM.cboAnBuoiLabel && DOM.cboAnBuoiMenu) {
+      DOM.cboAnBuoiLabel.addEventListener("click", function(e) {
+        e.stopPropagation();
+        DOM.cboAnBuoiMenu.style.display = (DOM.cboAnBuoiMenu.style.display === "none" || DOM.cboAnBuoiMenu.style.display === "") ? "block" : "none";
+      });
+      DOM.cboAnBuoiMenu.addEventListener("click", e => e.stopPropagation());
+      document.addEventListener("click", () => DOM.cboAnBuoiMenu.style.display = "none");
+    }
+
+    // Xử lý ẩn/hiện mật khẩu (Icon con mắt) ở màn hình đăng nhập
+    const togglePass = document.getElementById('togglePass');
+    if (togglePass && DOM.loginPass) {
+      togglePass.addEventListener('click', function() {
+        const type = DOM.loginPass.getAttribute('type') === 'password' ? 'text' : 'password';
+        DOM.loginPass.setAttribute('type', type);
+        this.classList.toggle('fa-eye');
+        this.classList.toggle('fa-eye-slash');
+      });
+    }
+
+    // Tải dữ liệu danh mục tổng từ Google Sheets về Client
+    google.script.run
+      .withSuccessHandler(function(data) {
+        nguonDuLieuForm = data;
+        
+        // Nạp dữ liệu vào Combobox Năm học của màn hình ĐĂNG NHẬP
+        const f1 = document.createDocumentFragment();
+        f1.appendChild(new Option("-- Chọn Năm học --", ""));
+        nguonDuLieuForm.namHoc.forEach(nam => f1.appendChild(new Option(nam, nam)));
+        DOM.loginNam.innerHTML = ""; DOM.loginNam.appendChild(f1);
+
+        // Nạp dữ liệu vào Combobox Môn học của màn hình LÀM VIỆC CHÍNH
+        const f2 = document.createDocumentFragment();
+        f2.appendChild(new Option("-- Chọn Môn học --", ""));
+        if (nguonDuLieuForm.monHoc) {
+          nguonDuLieuForm.monHoc.forEach(mon => f2.appendChild(new Option(mon, mon)));
+        }
+        DOM.monhoc_cbo.innerHTML = ""; DOM.monhoc_cbo.appendChild(f2);
+
+        DOM.status.innerText = "Đồng bộ danh mục thành công. Đang thiết lập cấu hình Form...";
+        khởiTạoLướiBáoGiảng();
+        khởiTạoLướiPhụPPCT(); 
+
+        // Gắn sự kiện thay đổi cho các cấp bậc danh mục trên màn hình ĐĂNG NHẬP
+        DOM.loginNam.addEventListener("change", function() { 
+          capNhatComboboxTruongHoc(this.value); 
+        });
+        
+        DOM.loginTruong.addEventListener("change", function() { 
+          capNhatComboboxGiaoVien(DOM.loginNam.value, this.value); 
+        });
+
+        // Gắn sự kiện thay đổi tuần học trên Form chính
+        DOM.tuan.addEventListener("change", function() {
+          kiemTraGiaTriTuanHoc(this);
+          kichHoatTaiDuLieuNguocVeForm(this.value); 
+        });
+
+        // Đóng gói ma trận lọc ẩn/hiện buổi dạy
+        const checkboxes = document.querySelectorAll(".chk-an-buoi");
+        checkboxes.forEach(chk => chk.addEventListener("change", thucHienLocAnHienBuoiTheoMaTran));
+
+        document.getElementById("btnResetBoLoc")?.addEventListener("click", function() {
+          checkboxes.forEach(chk => chk.checked = false);
+          thucHienLocAnHienBuoiTheoMaTran();
+        });
+
+        DOM.monhoc_cbo.addEventListener("change", taiLichPPCTDeXem);
+        DOM.khoihoc_cbo.addEventListener("change", taiLichPPCTDeXem);
+
+        DOM.txtTimKiemLuoi?.addEventListener("input", xulyTimKiemNhanhTrenLuoi);
+        document.getElementById("btXuatExcelNhanh")?.addEventListener("click", thucHienXuatExcelLuoiBaoGiang);
+
+        // KÍCH HOẠT QUY TRÌNH KIỂM TRA ĐĂNG NHẬP GHI NHỚ TỰ ĐỘNG
+        taiThongTinDangNhap();
+        // 🌟 SỰ KIỆN: TỰ ĐỘNG TẢI LẠI LỊCH BÁO GIẢNG KHI ADMIN CHỌN TÊN GIÁO VIÊN KHÁC
+        DOM.giaovien.addEventListener("change", function() {
+          if (this.value && this.value.trim() !== "") {
+            DOM.status.innerText = `Đang kết nối luồng và chuyển đổi sang lịch của giáo viên: ${this.value}...`;
+            kichHoatTaiDuLieuNguocVeForm(); // Tự động load dữ liệu tuần của giáo viên mới chọn lên lưới
+          }
+        });
+      })
+      .withFailureHandler(function() {
+        DOM.status.innerText = "Lỗi kết nối danh mục từ máy chủ tổng!";
+        khởiTạoLướiBáoGiảng();
+      })
+      .getListDataDataFromSheet();
+  });
+
+  // --- 2. XỬ LÝ GHI NHỚ ĐĂNG NHẬP (LOCAL STORAGE) ---
+  function luuThongTinDangNhap() {
+    const isRemember = DOM.chkNhoDangNhap.checked;
+    if (isRemember) {
+      localStorage.setItem('login_nam', DOM.loginNam.value);
+      localStorage.setItem('login_truong', DOM.loginTruong.value);
+      localStorage.setItem('login_gv', DOM.loginGv.value);
+      localStorage.setItem('login_pass', DOM.loginPass.value);
+      localStorage.setItem('login_remember', 'true');
+    } else {
+      localStorage.removeItem('login_nam');
+      localStorage.removeItem('login_truong');
+      localStorage.removeItem('login_gv');
+      localStorage.removeItem('login_pass');
+      localStorage.setItem('login_remember', 'false');
+    }
+  }
+
+  function taiThongTinDangNhap() {
+    const isRemember = localStorage.getItem('login_remember');
+    if (isRemember === 'true') {
+      DOM.chkNhoDangNhap.checked = true;
+      DOM.loginPass.value = localStorage.getItem('login_pass') || '';
+
+      // Tự động gán tuần tự có kiểm soát delay vòng lặp DOM bằng MutationObserver
+      tuDongChonSelect('login_nam', localStorage.getItem('login_nam'));
+      tuDongChonSelect('login_truong', localStorage.getItem('login_truong'));
+      tuDongChonSelect('login_gv', localStorage.getItem('login_gv'));
+    } else {
+      // Nếu không ghi nhớ, chọn mặc định năm học hiện tại 2026-2027 đón đầu
+      for (let i = 0; i < DOM.loginNam.options.length; i++) {
+        if (DOM.loginNam.options[i].value === "2026-2027") {
+          DOM.loginNam.selectedIndex = i;
+          capNhatComboboxTruongHoc("2026-2027");
+          break;
+        }
+      }
+    }
+  }
+
+  function tuDongChonSelect(id, valueToSelect) {
+    if (!valueToSelect) return;
+    const el = document.getElementById(id);
+    if (!el) return;
+    
+    if (Array.from(el.options).some(opt => opt.value === valueToSelect)) {
+      el.value = valueToSelect;
+      el.dispatchEvent(new Event('change'));
+      return;
+    }
+    
+    const observer = new MutationObserver((mutations, obs) => {
+      if (Array.from(el.options).some(opt => opt.value === valueToSelect)) {
+        obs.disconnect(); // Ngắt theo dõi trước để chặn vòng lặp vô hạn
+        el.value = valueToSelect;
+        el.dispatchEvent(new Event('change'));
+      }
+    });
+    observer.observe(el, { childList: true });
+  }
+
+  // --- 3. HÀM XỬ LÝ ĐĂNG NHẬP CHUYÊN BIỆT ---
+  // --- 3. HÀM XỬ LÝ ĐĂNG NHẬP CHUYÊN BIỆT (TÍCH HỢP PHÂN QUYỀN ĐỒNG BỘ COMBOBOX) ---
+  function thucHienDangNhap(event) {
+    event.preventDefault(); 
+    luuThongTinDangNhap();
+
+    const namHoc = DOM.loginNam.value;
+    const truongHoc = DOM.loginTruong.value;
+    const giaoVien = DOM.loginGv.value;
+    const matKhau = DOM.loginPass.value.trim();
+
+    DOM.loadingOverlay.style.display = 'flex';
+    DOM.loadingText.innerText = 'Đang xác thực thông tin tài khoản giáo viên...';
+
+    google.script.run
+      .withSuccessHandler(function(ketQua) {
+        if (ketQua.hopLe) {
+          DOM.loginScreen.style.display = 'none';
+          DOM.appMainForm.style.display = 'block';
+          
+          DOM.namhoc.innerHTML = `<option value="${namHoc}">${namHoc}</option>`;
+          DOM.truonghoc.innerHTML = `<option value="${truongHoc}">${truongHoc}</option>`;
+          
+          DOM.namhoc.value = namHoc;
+          DOM.truonghoc.value = truongHoc;
+          
+          // 🌟 GIẢI PHÁP MỚI: Kiểm tra quyền Admin được Server trả về ngầm từ hàm xác thực mật khẩu
+          // (Nhớ bổ sung biến `laAdmin: coQuyenAdmin` trong hàm xacThucMatKhauGiaoVien ở Code.gs như đã hướng dẫn trước đó)
+          const laAdminHeThong = (ketQua.laAdmin === true);
+
+          if (laAdminHeThong) {
+            // Cấu hình giao diện mở khóa cho Admin
+            DOM.giaovien.disabled = false;
+            DOM.giaovien.style.backgroundColor = "#ffffff";
+            DOM.giaovien.style.cursor = "pointer";
+            DOM.giaovien.value = giaoVien;
+            
+            // Kích hoạt nạp đầy đủ danh sách giáo viên toàn trường
+            if (typeof window.lamMoiComboboxGiaoVienChinh === "function") {
+              window.lamMoiComboboxGiaoVienChinh(namHoc, truongHoc);
+            }
+          } else {
+            // Cấu hình giao diện khóa cứng bảo mật cho Giáo viên thường
+            DOM.giaovien.innerHTML = `<option value="${giaoVien}">${giaoVien}</option>`;
+            DOM.giaovien.value = giaoVien;
+            DOM.giaovien.disabled = true;
+            DOM.giaovien.style.backgroundColor = "#e9ecef";
+            DOM.giaovien.style.cursor = "not-allowed";
+          }
+          
+          // Tải dữ liệu lịch báo giảng tuần học hiện tại
+          kichHoatTaiDuLieuNguocVeForm("CHUYEN_GV");
+
+          // Vẫn giữ kiểm tra phân quyền bổ trợ cho các nút Thêm GV / Reset mật khẩu
+          if (typeof google.script.run.kiemTraQuyenCapNhat === "function") {
+            google.script.run
+              .withSuccessHandler(function(hasPermission) {
+                DOM.loadingOverlay.style.display = 'none';
+                if (DOM.btnCapNhat) DOM.btnCapNhat.style.display = hasPermission ? "block" : "none";
+                if (DOM.vungAdminCapLaiMk) {
+                  DOM.vungAdminCapLaiMk.style.display = hasPermission ? "block" : "none";
+                  if (hasPermission) capNhatComboboxAdminReset(namHoc, truongHoc);
+                }
+              })
+              .kiemTraQuyenCapNhat(namHoc, truongHoc, giaoVien);
+          } else {
+            DOM.loadingOverlay.style.display = 'none';
+          }
+          
+          DOM.status.innerText = laAdminHeThong ? `[QUẢN TRỊ] Đăng nhập thành công. Tài khoản: ${giaoVien}` : `Đăng nhập thành công. Xin chào, ${giaoVien}`;
+        } else {
+          DOM.loadingOverlay.style.display = 'none';
+          alert('Đăng nhập thất bại: Mật khẩu không chính xác hoặc không tìm thấy hồ sơ giáo viên!');
+          DOM.loginPass.focus();
+        }
+      })
+      .withFailureHandler(function(err) {
+        DOM.loadingOverlay.style.display = 'none';
+        alert('Lỗi kết nối máy chủ đường truyền: ' + err.message);
+      })
+      .xacThucMatKhauGiaoVien(namHoc, truongHoc, giaoVien, matKhau); 
+  }
+
+  // --- 4. CÁC HÀM ĐIỀU PHỐI COMBOBOX DANH MỤC ---
+  function capNhatComboboxTruongHoc(namHocDuocChon) {
+    if (!namHocDuocChon || !nguonDuLieuForm.banDoHeThong[namHocDuocChon]) return;
+    const f = document.createDocumentFragment();
+    f.appendChild(new Option("-- Chọn Trường học --", ""));
+    Object.keys(nguonDuLieuForm.banDoHeThong[namHocDuocChon]).forEach(t => f.appendChild(new Option(t, t)));
+    DOM.loginTruong.innerHTML = ""; DOM.loginTruong.appendChild(f);
+    DOM.loginGv.innerHTML = '<option value="">-- Chọn Trường trước --</option>';
+  }
+
+  function capNhatComboboxGiaoVien(namHocHienTai, truongHocDuocChon) {
+    if (!namHocHienTai || !truongHocDuocChon || !nguonDuLieuForm.banDoHeThong[namHocHienTai]?.[truongHocDuocChon]) return;
+    const f = document.createDocumentFragment();
+    f.appendChild(new Option("-- Chọn Giáo viên --", ""));
+    nguonDuLieuForm.banDoHeThong[namHocHienTai][truongHocDuocChon].forEach(gv => f.appendChild(new Option(gv.ten, gv.ten)));
+    DOM.loginGv.innerHTML = ""; DOM.loginGv.appendChild(f);
+  }
+
+  // Đồng bộ nạp danh sách giáo viên vào các combobox quản trị của Admin
+  function capNhatComboboxAdminReset(namHocHienTai, truongHocDuocChon) {
+    const cboReset = DOM.cboGvCapLaiMk;
+    const cboXoa = DOM.cboGvXoaAdmin;
+    if (!namHocHienTai || !truongHocDuocChon || !nguonDuLieuForm.banDoHeThong[namHocHienTai]?.[truongHocDuocChon]) return;
+
+    const fReset = document.createDocumentFragment();
+    const fXoa = document.createDocumentFragment();
+
+    fReset.appendChild(new Option("-- Chọn giáo viên cần cấp lại --", ""));
+    fXoa.appendChild(new Option("-- Chọn giáo viên --", ""));
+
+    nguonDuLieuForm.banDoHeThong[namHocHienTai][truongHocDuocChon].forEach(gv => {
+      fReset.appendChild(new Option(gv.ten, gv.ten));
+      fXoa.appendChild(new Option(gv.ten, gv.ten));
+    });
+
+    if (cboReset) { cboReset.innerHTML = ""; cboReset.appendChild(fReset); }
+    if (cboXoa) { cboXoa.innerHTML = ""; cboXoa.appendChild(fXoa); }
+  }
+
+  // ==========================================================================
+  // SỰ KIỆN: ADMIN PHÊ DUYỆT XÓA GIÁO VIÊN VÀ TIÊU HỦY TÀI LIỆU
+  // ==========================================================================
+  DOM.btXoaGvAdmin?.addEventListener("click", function() {
+    const nam = DOM.namhoc.value;
+    const truong = DOM.truonghoc.value;
+    const gvHienTai = DOM.giaovien.value; // Tên Admin đang đăng nhập thao tác
+    const gvCanXoa = DOM.cboGvXoaAdmin ? DOM.cboGvXoaAdmin.value : "";
+
+    if (!gvCanXoa) {
+      alert("Vui lòng lựa chọn họ và tên Giáo viên cần xóa khỏi hệ thống!");
+      return;
+    }
+
+    if (gvCanXoa === gvHienTai) {
+      alert("Bảo mật hệ thống từ chối: Bạn không được phép tự xóa tài khoản của chính mình!");
+      return;
+    }
+
+    // Xác nhận 2 bước để tránh bấm nhầm hủy hoại dữ liệu
+    const xacNhan1 = confirm(`🚨 CẢNH BÁO NGUY HIỂM - QUẢN TRỊ VIÊN TRƯỜNG\n\nBạn có chắc chắn muốn XÓA TOÀN BỘ hồ sơ và TỆP LỊCH BÁO GIẢNG của giáo viên [ ${gvCanXoa} ] không?\n\nMọi quyền thao tác của giáo viên này sẽ bị tước bỏ ngay lập tức!`);
+    if (!xacNhan1) return;
+
+    const xacNhan2 = confirm(`⚠️ XÁC THỰC LẦN CUỐI\n\nTệp dữ liệu báo giảng của giáo viên trên Google Drive sẽ bị hủy bỏ. Tên giáo viên sẽ biến mất khỏi danh mục trường trong vòng 12 giờ tới.\n\nNhấn OK để thực thi lệnh xóa.`);
+    if (!xacNhan2) return;
+
+    DOM.status.innerText = `Đang kích hoạt lệnh bảo mật, cô lập tài khoản và tiêu hủy file Drive của giáo viên: ${gvCanXoa}...`;
+    DOM.loadingOverlay.style.display = "flex";
+
+    google.script.run
+      .withSuccessHandler(function(res) {
+        DOM.loadingOverlay.style.display = "none";
+        alert(res.tinNhan);
+        
+        if (res.thanhCong) {
+          DOM.status.innerText = `Đã cô lập thành công giáo viên ${gvCanXoa}.`;
+          
+          // Tải lại bộ danh mục tổng từ máy chủ để đồng bộ sạch giao diện
+          google.script.run
+            .withSuccessHandler(function(data) {
+              nguonDuLieuForm = data;
+              if (window.lamMoiComboboxGiaoVienChinh) {
+                window.lamMoiComboboxGiaoVienChinh(nam, truong);
+              }
+              capNhatComboboxAdminReset(nam, truong);
+            })
+            .getListDataDataFromSheet();
+        }
+      })
+      .withFailureHandler(function(err) {
+        DOM.loadingOverlay.style.display = "none";
+        alert("Sự cố hệ thống từ lớp máy chủ Drive: " + err.toString());
+      })
+      .xuLyXoaGiaoVienAdmin(nam, truong, gvCanXoa, gvHienTai);
+  });
+
+  // --- 5. LOGIC TẢI VÀ ĐỒNG BỘ DỮ LIỆU LỊCH BÁO GIẢNG ---
+  // --- 5. LOGIC TẢI VÀ ĐỒNG BỘ DỮ LIỆU LỊCH BÁO GIẢNG ---
+  // --- 5. LOGIC TẢI VÀ ĐỒNG BỘ DỮ LIỆU LỊCH BÁO GIẢNG (TÍCH HỢP PHÂN QUYỀN ADMIN) ---
+  // --- 5. LOGIC TẢI VÀ ĐỒNG BỘ DỮ LIỆU LỊCH BÁO GIẢNG (CÓ BẢO VỆ PHÂN QUYỀN) ---
+  function kichHoatTaiDuLieuNguocVeForm(tuanThamSo) {
+    const nam = DOM.namhoc.value, truong = DOM.truonghoc.value, gv = DOM.giaovien.value;
+    let tuanGuiLen = tuanThamSo ? tuanThamSo : DOM.tuan.value;
+    if (!nam || !truong || !gv) return; 
+
+    DOM.status.innerText = "Đang kết nối dữ liệu lịch tuần...";
+    DOM.loadingOverlay.style.display = "flex";
+    DOM.loadingText.innerText = "Hệ thống đang đồng bộ tải dữ liệu từ tệp gốc...";
+
+    const laDiDong = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+    google.script.run
+      .withSuccessHandler(function(res) {
+        DOM.loadingOverlay.style.display = "none";
+        
+        if (res && res.thanhCong) {
+          if (res.thongTinThoiGian.tuan) DOM.tuan.value = res.thongTinThoiGian.tuan;
+          DOM.ngaybatdau.value = res.thongTinThoiGian.ngayBatDau || "";
+          DOM.tettu.value = res.thongTinThoiGian.tetTu || "";
+          DOM.tetden.value = res.thongTinThoiGian.tetDen || "";
+          DOM.tuan_tungay.value = res.thongTinThoiGian.tuanTuNgay || "";
+          DOM.tuan_denngay.value = res.thongTinThoiGian.tuanDenNgay || "";
+
+          // 🌟 SỬA LỖI ẨN Ô: Chỉ phân quyền khi `res.laAdmin` được xác định rõ ràng từ Server trả về
+          // 🌟 SỬA LỖI ẨN Ô: Chỉ phân quyền khi `res.laAdmin` được xác định rõ ràng từ Server trả về
+          // Phân quyền mở khóa và nạp danh sách giáo viên diện rộng
+          if (res.hasOwnProperty('laAdmin')) {
+            if (res.laAdmin === true) {
+              DOM.giaovien.disabled = false;
+              DOM.giaovien.style.backgroundColor = "#ffffff";
+              DOM.giaovien.style.display = "block"; 
+              DOM.giaovien.style.cursor = "pointer";
+              
+              // 🚀 CHÈN/KIỂM TRA DÒNG NÀY: Gọi hàm làm mới nạp data từ server
+              if (typeof window.lamMoiComboboxGiaoVienChinh === "function") {
+                window.lamMoiComboboxGiaoVienChinh(nam, truong);
+              }
+
+            } else {
+              DOM.giaovien.disabled = true;
+              DOM.giaovien.style.backgroundColor = "#e9ecef";
+              DOM.giaovien.style.display = "block"; 
+              DOM.giaovien.style.cursor = "not-allowed";
+            }
+          }
+
+          // Đồng bộ ma trận ẩn/hiển buổi từ tệp lưu trữ
+          const checkboxes = document.querySelectorAll(".chk-an-buoi");
+          if (res.maTranAnBuoi && res.maTranAnBuoi.length === 12) {
+            checkboxes.forEach(chk => {
+              chk.checked = (res.maTranAnBuoi[parseInt(chk.getAttribute("data-index"), 10)] === true);
+            });
+          }
+
+          if (hotInstance && res.duLieuLuoi) {
+            hotInstance.updateSettings({
+              columns: [
+                { readOnly: true }, 
+                { readOnly: true }, 
+                { 
+                  type: laDiDong ? 'dropdown' : 'autocomplete', 
+                  source: nguonDuLieuForm.monHoc, 
+                  strict: true,         
+                  allowInvalid: false,  
+                  filter: !laDiDong,    
+                  visibleRows: laDiDong ? 6 : 12,
+                  processData: function(value) {
+                    return (!value || value.trim() === "" || value === "-- Chọn Môn học --") ? "" : value;
+                  }
+                }, 
+                { 
+                  type: laDiDong ? 'dropdown' : 'autocomplete', 
+                  source: nguonDuLieuForm.lopHoc, 
+                  strict: true,
+                  allowInvalid: false,
+                  filter: !laDiDong,
+                  visibleRows: laDiDong ? 6 : 12,
+                  processData: function(value) {
+                    return (!value || value.trim() === "") ? "" : value;
+                  }
+                }, 
+                {},                 
+                { readOnly: true }, 
+                {},                 
+                { type: 'checkbox', checkedTemplate: true, uncheckedTemplate: false } 
+              ],
+              enterBeginsEditing: false,
+              dragToSelect: !laDiDong 
+            });
+
+            let changes = [];
+            for (let r = 0; r < res.duLieuLuoi.length; r++) {
+              let rData = res.duLieuLuoi[r];
+              
+              let monHocVal = rData[0] ? rData[0].toString().trim() : "";
+              let lopHocVal = rData[1] ? rData[1].toString().trim() : "";
+              let tietPpctVal = rData[2] ? rData[2].toString().trim() : "";
+              let tenBaiVal = rData[3] ? rData[3].toString().trim() : "";
+              let dieuChinhVal = rData[4] ? rData[4].toString().trim() : "";
+              let nghiVal = (rData[5] === true || rData[5] === "true");
+
+              if (monHocVal === "-- Chọn Môn học --") monHocVal = "";
+
+              if (monHocVal === "" && lopHocVal === "") {
+                tietPpctVal = "";
+                tenBaiVal = "";
+              }
+
+              changes.push(
+                [r, 2, monHocVal], 
+                [r, 3, lopHocVal], 
+                [r, 4, tietPpctVal], 
+                [r, 5, tenBaiVal], 
+                [r, 6, dieuChinhVal], 
+                [r, 7, nghiVal]
+              );
+            }
+            
+            hotInstance.setDataAtCell(changes, 'loadData');
+          }
+          
+          thucHienLocAnHienBuoiTheoMaTran();
+          
+          if (res.laAdmin === true) {
+            DOM.status.innerText = `[QUẢN TRỊ] Đã đồng bộ lịch của giáo viên: ${gv}`;
+          } else {
+            DOM.status.innerText = "Đã đồng bộ trọn vẹn lịch tuần từ xa.";
+          }
+          
+          taiLichPPCTDeXem();
+        } else {
+          DOM.status.innerText = "Sẵn sàng (Tuần học trống).";
+          thucHienLocAnHienBuoiTheoMaTran();
+        }
+      })
+      .withFailureHandler(() => {
+        DOM.loadingOverlay.style.display = "none";
+        DOM.status.innerText = "Gặp sự cố tải đồng bộ lịch tuần!";
+      })
+      .taiDuLieuNguocVeForm(nam, truong, gv, tuanGuiLen);
+  }
+
+  function thucHienLocAnHienBuoiTheoMaTran() {
+    if (!hotInstance) return;
+    const pluginHiddenRows = hotInstance.getPlugin('hiddenRows');
+    let danhSachDongCanAn = [], labelTextParts = [];
+    const chuoiThu = ["T2", "T3", "T4", "T5", "T6", "T7"];
+    
+    document.querySelectorAll(".chk-an-buoi").forEach(chk => {
+      if (chk.checked) {
+        let indexMaTran = parseInt(chk.getAttribute("data-index"), 10);
+        labelTextParts.push(`${chuoiThu[Math.floor(indexMaTran / 2)]} (${(indexMaTran % 2 === 0) ? "Sáng" : "Chiều"})`);
+        let start = indexMaTran * 5; for (let r = start; r < start + 5; r++) danhSachDongCanAn.push(r);
+      }
+    });
+
+    if (DOM.cboAnBuoiLabel) {
+      if (labelTextParts.length === 0) {
+        DOM.cboAnBuoiLabel.innerText = "-- Hiển thị đầy đủ tất cả các buổi (Tích chọn để ẨN) --";
+        DOM.cboAnBuoiLabel.style.color = "";
+      } else {
+        DOM.cboAnBuoiLabel.innerText = "Đang ẩn: " + labelTextParts.join(", ");
+        DOM.cboAnBuoiLabel.style.color = "#c92a2a"; 
+      }
+    }
+    let allRows = []; for (let i = 0; i < 60; i++) allRows.push(i);
+    pluginHiddenRows.showRows(allRows);
+    if (danhSachDongCanAn.length > 0) pluginHiddenRows.hideRows(danhSachDongCanAn);
+    hotInstance.render();
+  }
+
+  function kiemTraGiaTriTuanHoc(inputElement) {
+    const soTuan = parseInt(inputElement.value.trim(), 10);
+    if (isNaN(soTuan) || soTuan < 1 || soTuan > 35) {
+      alert("Chỉ số tuần học hợp lệ từ 1 đến 35!"); inputElement.value = "1";
+    }
+  }
+
+  // --- 6. KHỞI TẠO LƯỚI HANDSONTABLE ---
+  function khởiTạoLướiBáoGiảng() {
+    const container = document.getElementById('grid'); if (!container) return;
+    const danhSáchThứ = ["Thứ hai", "Thứ ba", "Thứ tư", "Thứ năm", "Thứ sáu", "Thứ bảy"], dataBanĐầu = [];
+
+    const laDiDong = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+    for (let i = 0; i < 60; i++) {
+      let rowData = Array(8).fill(""), indexBuổi = Math.floor(i / 5), dòngTrongBuổi = i % 5;        
+      if (dòngTrongBuổi === 0) rowData[0] = danhSáchThứ[Math.floor(i / 10)] || ""; 
+      else if (dòngTrongBuổi === 1) rowData[0] = (indexBuổi % 2 === 0) ? "Sáng" : "Chiều"; 
+      rowData[1] = dòngTrongBuổi + 1; rowData[7] = false; dataBanĐầu.push(rowData);
+    }
+
+    hotInstance = new Handsontable(container, {
+      data: dataBanĐầu, 
+      hiddenRows: true, 
+      licenseKey: 'non-commercial-and-evaluation', 
+      colHeaders: ["Thứ/Buổi", "Tiết", "Môn Học", "Lớp", "Tiết PPCT", "Tên Bài Dạy", "Điều chỉnh", "Nghỉ"],
+      
+      columns: [
+        { readOnly: true }, 
+        { readOnly: true }, 
+        { 
+          type: laDiDong ? 'dropdown' : 'autocomplete', 
+          source: nguonDuLieuForm.monHoc, 
+          strict: true,         
+          allowInvalid: false,  
+          filter: !laDiDong,    
+          visibleRows: laDiDong ? 6 : 12, 
+          processData: function(value) {
+            return (!value || value.trim() === "" || value === "-- Chọn Môn học --") ? "" : value;
+          }
+        }, 
+        { 
+          type: laDiDong ? 'dropdown' : 'autocomplete', 
+          source: nguonDuLieuForm.lopHoc, 
+          strict: true,
+          allowInvalid: false,
+          filter: !laDiDong,
+          visibleRows: laDiDong ? 6 : 12,
+          processData: function(value) {
+            return (!value || value.trim() === "") ? "" : value;
+          }
+        }, 
+        {},                 
+        { readOnly: true }, 
+        {},                 
+        { type: 'checkbox', checkedTemplate: true, uncheckedTemplate: false } 
+      ],
+      
+      viewportRowRenderingOffset: 15, 
+      rowHeaders: true, 
+      width: '100%', 
+      stretchH: 'all', 
+      manualColumnResize: true,
+      rowHeights: 21, // 🌟 THÊM DÒNG NÀY: Ép tất cả 60 dòng có chiều cao cố định 26px (Chuẩn Excel)
+
+      fillHandle: true,          
+      minRows: 60,               
+      maxRows: 60,               
+      minCols: 8,                
+      maxCols: 8,                
+
+      contextMenu: [
+        'copy',                  
+        'cut',                   
+        'clear_column',          
+        'alignment'              
+      ],
+      
+      autoColumnSize: true,
+      fragmentSelection: true,
+      
+      enterBeginsEditing: false, 
+      autoWrapRow: true,
+      dragToSelect: !laDiDong,     
+      fragmentSelection: 'cell',   
+      selectionMode: 'multiple',   
+      
+      afterOnCellMouseDown: function(event, coords, TD) {
+        if (laDiDong && (coords.col === 2 || coords.col === 3) && coords.row >= 0) {
+          setTimeout(() => {
+            let editor = this.getActiveEditor();
+            if (editor && !editor.isOpened()) {
+              editor.beginEditing();
+              editor.open(); 
+            }
+          }, 50);
+        }
+      },
+
+      cells: function(row, col) {
+        let p = {}; let list = [];
+        
+        // 1. Định dạng ô khóa/đọc (Cột Thứ/Buổi, Tiết, Tên bài dạy)
+        if ([0, 1, 5].includes(col)) { p.readOnly = true; list.push('htDimPanel'); }
+        
+        // Căn lề chữ cho các cột
+        list.push([0, 1, 3, 4, 7].includes(col) ? 'htCenter' : 'htLeft', 'htMiddle');
+
+        // KIỂM TRA ĐƯỜNG VIỀN PHÂN TÁCH BUỔI (Dòng cuối cùng của mỗi buổi học)
+        let laCuoiBuoi = (row + 1) % 5 === 0 && row < 59;
+        if (laCuoiBuoi) {
+          list.push('border-buoi');
+        }
+
+        // 2. THUẬT TOÁN ĐỔI MÀU NHẸ XEN KẼ THEO NGÀY VÀ BUỔI
+        let indexNgay = Math.floor(row / 10);  // 0: Thứ 2, 1: Thứ 3, 2: Thứ 4, 3: Thứ 5, 4: Thứ 6, 5: Thứ 7
+        let indexBuoi = Math.floor(row / 5);   // Số chẵn là Buổi Sáng, Số lẻ là Buổi Chiều
+
+        // 🌟 ĐỊNH NGHĨA ĐƯỜNG VIỀN SIÊU NHẠT: Hạ độ dày xuống 1px và dùng màu xám rất dịu
+        let mauVienSieuNhat = '1px solid #d1d1d6';
+
+        if (indexNgay % 2 === 0) {
+          // 🗓️ NGÀY CHẴN (Thứ 2, Thứ 4, Thứ 6)
+          if (indexBuoi % 2 === 0) {
+            list.push('bg-sang-chan');
+            p.renderer = function(instance, td, row, col, prop, value, cellProperties) {
+              Handsontable.renderers.getRenderer(cellProperties.type || 'text')(instance, td, row, col, prop, value, cellProperties);
+              if (![0, 1, 5].includes(col)) td.style.backgroundColor = '#fff9db'; // Màu Vàng kem
+              if (laCuoiBuoi) td.style.borderBottom = mauVienSieuNhat; // Viền mỏng, nhẹ nhàng
+            };
+          } else {
+            list.push('bg-chieu-chan');
+            p.renderer = function(instance, td, row, col, prop, value, cellProperties) {
+              Handsontable.renderers.getRenderer(cellProperties.type || 'text')(instance, td, row, col, prop, value, cellProperties);
+              if (![0, 1, 5].includes(col)) td.style.backgroundColor = '#e8f5e9'; // Màu Xanh mạ
+              if (laCuoiBuoi) td.style.borderBottom = mauVienSieuNhat;
+            };
+          }
+        } else {
+          // 🗓️ NGÀY LẺ (Thứ 3, Thứ 5, Thứ 7)
+          if (indexBuoi % 2 === 0) {
+            list.push('bg-sang-le');
+            p.renderer = function(instance, td, row, col, prop, value, cellProperties) {
+              Handsontable.renderers.getRenderer(cellProperties.type || 'text')(instance, td, row, col, prop, value, cellProperties);
+              if (![0, 1, 5].includes(col)) td.style.backgroundColor = '#fff0f6'; // Màu Hồng phấn
+              if (laCuoiBuoi) td.style.borderBottom = mauVienSieuNhat;
+            };
+          } else {
+            list.push('bg-chieu-le');
+            p.renderer = function(instance, td, row, col, prop, value, cellProperties) {
+              Handsontable.renderers.getRenderer(cellProperties.type || 'text')(instance, td, row, col, prop, value, cellProperties);
+              if (![0, 1, 5].includes(col)) td.style.backgroundColor = '#e3f2fd'; // Màu Xanh da trời
+              if (laCuoiBuoi) td.style.borderBottom = mauVienSieuNhat;
+            };
+          }
+        }
+        
+        // Giữ màu xám phân biệt riêng cho các ô ReadOnly (Cột Thứ/Buổi, Tiết, Tên Bài Dạy)
+        if ([0, 1, 5].includes(col)) {
+          let oldRenderer = p.renderer;
+          p.renderer = function(instance, td, row, col, prop, value, cellProperties) {
+            if (oldRenderer) oldRenderer(instance, td, row, col, prop, value, cellProperties);
+            else Handsontable.renderers.getRenderer(cellProperties.type || 'text')(instance, td, row, col, prop, value, cellProperties);
+            td.style.backgroundColor = '#f1f3f5'; 
+            if (laCuoiBuoi) td.style.borderBottom = mauVienSieuNhat; // Ép ô readonly ăn viền đồng bộ
+          };
+        }
+
+        // 3. Xử lý in đậm ô khi tìm kiếm nhanh
+        if (DOM.txtTimKiemLuoi && DOM.txtTimKiemLuoi.value.trim() !== "") {
+          let tuKhóa = DOM.txtTimKiemLuoi.value.trim().toLowerCase();
+          let giaTriO = this.instance.getDataAtCell(row, col);
+          if (giaTriO && giaTriO.toString().toLowerCase().indexOf(tuKhóa) !== -1) {
+            list.push('font-weight-bold'); 
+          }
+        }
+
+        p.className = list.join(' '); return p;
+      },
+
+      afterChange: function(changes, source) {
+        if (source === 'loadData' || source === 'syncCallback' || !changes) return;
+        
+        changes.forEach(change => {
+          let row = change[0], col = change[1], oldVal = change[2], newVal = change[3];
+          
+          // Sự kiện tích Nghỉ (Cột 7)
+          if (col === 7 && oldVal !== newVal) {
+            const nam = DOM.namhoc.value, truong = DOM.truonghoc.value, gv = DOM.giaovien.value, tuan = DOM.tuan.value;
+            if (!nam || !truong || !gv) return;
+            
+            DOM.status.innerText = `Đang đồng bộ công thức Excel dòng ${row + 1} và tự động tính toán lại toàn bộ bài dạy trong tuần...`;
+
+            google.script.run
+              .withSuccessHandler(res => {
+                // 🌟 CẢI TIẾN: Kiểm tra nếu Server trả về mảng dữ liệu cập nhật tuần (duLieuCapNhatTuan)
+                if (res && res.thanhCong && res.duLieuCapNhatTuan) {
+                  let mangThayDoiDongLoat = [];
+                  res.duLieuCapNhatTuan.forEach(item => {
+                    mangThayDoiDongLoat.push(
+                      [item.dongIdx, 4, item.tietPpct], // Làm mới cột Tiết PPCT toàn tuần
+                      [item.dongIdx, 5, item.tenBaiDay]  // Làm mới cột Tên Bài Dạy toàn tuần
+                    );
+                  });
+                  // Đẩy mảng thay đổi diện rộng lên lưới
+                  hotInstance.setDataAtCell(mangThayDoiDongLoat, 'syncCallback');
+                  DOM.status.innerText = `Đã đồng bộ trạng thái Nghỉ dòng ${row + 1} và làm mới toàn bộ Tiết PPCT, Bài dạy của tuần thành công.`;
+                } 
+                // Phương án dự phòng nếu hàm server cũ chỉ trả về kết quả dòng đơn lẻ
+                else if (res && res.thanhCong && res.rowIndex !== undefined) {
+                  hotInstance.setDataAtCell([
+                    [res.rowIndex, 4, res.tietPpct], 
+                    [res.rowIndex, 5, res.tenBaiDay]
+                  ], 'syncCallback');
+                  DOM.status.innerText = "Đã đồng bộ kết quả dòng đơn lẻ thành công.";
+                }
+              })
+              .withFailureHandler(err => {
+                DOM.status.innerText = "Lỗi đường truyền đồng bộ ma trận tuần khi báo nghỉ!";
+              })
+              .capNhatNghiVaLayKetQua(nam, truong, gv, tuan, row, newVal);
+          }
+
+          // Sự kiện Thay đổi Môn học (Cột 2) hoặc Lớp học (Cột 3)
+          if ((col === 2 || col === 3) && oldVal !== newVal) {
+            const nam = DOM.namhoc.value, truong = DOM.truonghoc.value, gv = DOM.giaovien.value, tuan = DOM.tuan.value;
+            if (!nam || !truong || !gv) return;
+
+            // 🌟 CHUẨN HÓA GIÁ TRỊ TRUYỀN ĐI: Ép về chuỗi rỗng nếu chọn tiêu đề mồi hoặc null/undefined
+            let giaTriChuan = newVal;
+            if (!giaTriChuan || giaTriChuan === "-- Chọn Môn học --") {
+              giaTriChuan = ""; 
+            }
+
+            // Nếu người dùng chọn chữ mồi trên lưới, cập nhật hiển thị ngay lập tức về ô trắng tinh
+            if (newVal === "-- Chọn Môn học --") {
+              hotInstance.setDataAtCell(row, col, "", 'syncCallback');
+            }
+
+            // Đọc nhanh giá trị thời gian thực của cả 2 ô Môn và Lớp trên dòng hiện tại
+            let currentMon = (col === 2) ? giaTriChuan : (hotInstance.getDataAtCell(row, 2) || "").toString().trim();
+            let currentLop = (col === 3) ? giaTriChuan : (hotInstance.getDataAtCell(row, 3) || "").toString().trim();
+            if (currentMon === "-- Chọn Môn học --") currentMon = "";
+
+            // Nếu cả Môn và Lớp đều trống, tự động dọn sạch Tiết PPCT (Cột 4) và Tên Bài Dạy (Cột 5) trên giao diện
+            let laDongTrong = currentMon === "" && currentLop === "";
+            if (laDongTrong) {
+              hotInstance.setDataAtCell([
+                [row, 4, ""], 
+                [row, 5, ""]
+              ], 'syncCallback');
+            }
+
+            let tenTruongDuLieu = (col === 2) ? "Môn học" : "Lớp học";
+            DOM.status.innerText = `Đang đồng bộ ${tenTruongDuLieu} và tự động tính toán lại toàn bộ bài dạy trong tuần...`;
+
+            // 🚀 LUÔN LUÔN GỌI SERVER: Đảm bảo giá trị rỗng "" được ghi đè trực tiếp xuống Google Sheets
+            google.script.run
+              .withSuccessHandler(res => {
+                if (res && res.thanhCong && res.duLieuCapNhatTuan) {
+                  let mangThayDoiDongLoat = [];
+                  res.duLieuCapNhatTuan.forEach(item => {
+                    mangThayDoiDongLoat.push(
+                      [item.dongIdx, 4, item.tietPpct], 
+                      [item.dongIdx, 5, item.tenBaiDay]  
+                    );
+                  });
+                  hotInstance.setDataAtCell(mangThayDoiDongLoat, 'syncCallback'); 
+                  DOM.status.innerText = `Đã đồng bộ ${tenTruongDuLieu} dòng ${row + 1} và làm mới toàn bộ Tiết PPCT, Bài dạy của tuần thành công.`;
+                } else {
+                  DOM.status.innerText = "Sự cố cập nhật mảng ô tính: " + (res.error || "");
+                }
+              })
+              .withFailureHandler(err => {
+                DOM.status.innerText = "Lỗi đường truyền đồng bộ ma trận tuần!";
+              })
+              // Truyền giá trị chuẩn (ô trống "") lên hàm xử lý RealTime của file .gs
+              .capNhatMonLopRealTime(nam, truong, gv, tuan, row, col, giaTriChuan);
+          }
+        });
+      }
+    });
+  }
+
+  function khởiTạoLướiPhụPPCT() {
+    const c = document.getElementById('gridPPCT'); if (!c) return;
+    hotPPCTInstance = new Handsontable(c, {
+      data: [], licenseKey: 'non-commercial-and-evaluation',
+      colHeaders: ["Số Tiết (STT)", "Tên Bài Giảng / Chủ Đề", "Số Tiết Quy Định"],
+      columns: [{ readOnly: true, className: 'htCenter htMiddle', width: 120 }, { readOnly: true, className: 'htLeft htMiddle' }, { readOnly: true, className: 'htCenter htMiddle', width: 120 }],
+      rowHeaders: true, width: '100%', height: 260, stretchH: 'all', manualColumnResize: true,
+      viewportRowRenderingOffset: 10
+    });
+  }
+
+  function taiLichPPCTDeXem() {
+    if (!hotPPCTInstance) return;
+    const nam = DOM.namhoc.value, truong = DOM.truonghoc.value, gv = DOM.giaovien.value, mon = DOM.monhoc_cbo.value, khoi = DOM.khoihoc_cbo.value;
+    if (!nam || !truong || !gv || !mon || !khoi) { hotPPCTInstance.loadData([]); return; }
+
+    google.script.run
+      .withSuccessHandler(res => hotPPCTInstance.loadData(res?.thanhCong ? (res.dataPPCT || []) : []))
+      .taiDuLieuPPCTDeXem(nam, truong, gv, mon, khoi);
+  }
+
+  // --- 7. LOGIC CÁC NÚT ĐIỀU KHIỂN TOOLBAR ---
+  document.getElementById("btXemIn")?.addEventListener("click", function() {
+    if (!hotInstance) return;
+    const nam = DOM.namhoc.value, truong = DOM.truonghoc.value, gv = DOM.giaovien.value, tuNgay = DOM.tuan_tungay.value, tuanVal = DOM.tuan.value; 
+
+    if (!nam || !truong || !gv) { alert("Vui lòng chọn thông tin giáo viên trước khi xem in!"); return; }
+    if (!tuNgay) { alert("Không tìm thấy giá trị Ngày bắt đầu tuần học!"); return; }
+
+    DOM.status.innerText = "Hệ thống đang nạp dữ liệu và kết nối bảng in tổng...";
+    DOM.loadingOverlay.style.display = "flex";
+
+    let mangMaTranAnBuoi = Array(12).fill(false);
+    document.querySelectorAll(".chk-an-buoi").forEach(chk => mangMaTranAnBuoi[parseInt(chk.getAttribute("data-index"), 10)] = chk.checked);
+
+    google.script.run
+      .withSuccessHandler(function(res) {
+        DOM.loadingOverlay.style.display = "none";
+        if (res && res.thanhCong) {
+          DOM.printPreviewContainer.innerHTML = ""; 
+          DOM.printPreviewContainer.style.display = "block";
+          
+          const previewHeader = document.createElement("div");
+          previewHeader.style = "padding:8px 12px; background:#0d6efd; color:white; font-weight:bold; font-size:13px; border-radius:6px 6px 0 0; display:flex; justify-content:space-between; align-items:center;";
+          previewHeader.innerHTML = `<span><i class="fa-solid fa-eye"></i> BẢN XEM TRƯỚC TRỰC TUYẾN - LỊCH BÁO GIẢNG IN</span>`;
+          
+          const closeButton = document.createElement("button");
+          closeButton.type = "button"; closeButton.innerHTML = `<i class="fa-solid fa-xmark"></i> Đóng`;
+          closeButton.style = "background:#dc3545; color:white; border:none; padding:4px 10px; font-size:11px; font-weight:bold; border-radius:4px; cursor:pointer;";
+          
+          closeButton.onclick = function() { 
+            DOM.printPreviewContainer.innerHTML = ""; 
+            DOM.printPreviewContainer.style.display = "none"; 
+            DOM.status.innerText = "Đã đóng vùng xem trước bản in.";
+            document.getElementById("appMainForm").scrollIntoView({ behavior: "smooth", block: "start" });
+          };
+          
+          previewHeader.appendChild(closeButton);
+          DOM.printPreviewContainer.appendChild(previewHeader);
+
+          const iframe = document.createElement("iframe");
+          iframe.src = res.urlPreview; iframe.style = "width:100%; height:650px; border:1px solid #ced4da; background:white;";
+          DOM.printPreviewContainer.appendChild(iframe);
+          
+          DOM.status.innerText = "Đã nạp dữ liệu thành công.";
+
+          setTimeout(() => {
+            DOM.printPreviewContainer.scrollIntoView({ behavior: "smooth", block: "start" });
+          }, 150);
+
+        } else {
+          alert("Gặp sự cố khi đồng bộ dữ liệu: " + res.error);
+        }
+      })
+      .withFailureHandler(() => {
+        DOM.loadingOverlay.style.display = "none";
+        alert("Lỗi kết nối đồng bộ dữ liệu xem in!");
+      })
+      .xuLyVaDongBoXemIn(nam, truong, gv, tuNgay, tuanVal, mangMaTranAnBuoi, hotInstance.getData()); 
+  });
+
+  document.getElementById("btMoi").addEventListener("click", function() {
+    if (!hotInstance || !confirm("Bạn có chắc chắn muốn làm mới lưới tuần này không?")) return;
+    let changes = []; for (let r = 0; r < 60; r++) changes.push([r, 2, ""], [r, 3, ""], [r, 4, ""], [r, 5, ""], [r, 6, ""], [r, 7, false]);
+    hotInstance.setDataAtCell(changes, 'loadData'); DOM.status.innerText = "Lưới tính đã được đưa về trạng thái rỗng.";
+  });
+
+  // =========================================================================
+  // XỬ LÝ SỰ KIỆN CLICK NÚT LƯU - BỎ XÁC NHẬN & TỰ ĐỘNG ĐÓNG TRONG 0.5 GIÂY
+  // =========================================================================
+  document.getElementById("btLuu").addEventListener("click", function(e) {
+    e.preventDefault();
+    if (!hotInstance) { alert("Lỗi kết nối: Lưới hiển thị chưa sẵn sàng!"); return; }
+
+    const nam = DOM.namhoc.value;
+    const truong = DOM.truonghoc.value;
+    const gv = DOM.giaovien.value;
+    const tuanVal = DOM.tuan.value;
+
+    if (!nam || !truong || !gv || !tuanVal) { 
+      alert("Vui lòng nhập đủ thông tin trước khi lưu!"); 
+      return; 
+    }
+
+    // 🚀 ĐÃ BỎ: Dòng lệnh confirm hỏi xác nhận cũ tại đây
+
+    DOM.status.innerText = "Đang đóng gói dữ liệu và lưu lên máy chủ từ xa...";
+    DOM.loadingOverlay.style.display = "flex";
+    if (DOM.loadingText) DOM.loadingText.innerText = "Hệ thống đang tiến hành ghi tệp từ xa...";
+
+    const timeInfo = { 
+      ngayBatDau: DOM.ngaybatdau.value, 
+      tetTu: DOM.tettu.value, 
+      tetDen: DOM.tetden.value, 
+      tuan: tuanVal, 
+      tuanTuNgay: DOM.tuan_tungay.value, 
+      tuanDenNgay: DOM.tuan_denngay.value 
+    };
+
+    let mangMaTranAnBuoi = Array(12).fill(false);
+    document.querySelectorAll(".chk-an-buoi").forEach(chk => {
+      mangMaTranAnBuoi[parseInt(chk.getAttribute("data-index"), 10)] = chk.checked;
+    });
+
+    google.script.run
+      .withSuccessHandler(msg => { 
+        if (msg === "Thành công") {
+          // Cập nhật trạng thái xử lý nhanh lên màn hình
+          DOM.status.innerText = "✔ Đã đồng bộ lưu lịch báo giảng thành công!";
+          if (DOM.loadingText) DOM.loadingText.innerText = "✔ Đã lưu thành công!";
+          
+          // 🚀 HIỆU ỨNG SIÊU TỐC: Tự động đóng lớp phủ loading sau đúng 0.5 giây
+          setTimeout(function() {
+            DOM.loadingOverlay.style.display = "none";
+            DOM.status.innerText = "Hệ thống sẵn sàng thao tác.";
+          }, 500); 
+
+        } else {
+          // Nếu Server trả về một chuỗi thông báo lỗi khác chuỗi "Thành công"
+          DOM.loadingOverlay.style.display = "none";
+          DOM.status.innerText = "Lỗi: " + msg;
+          alert(msg);
+        }
+      })
+      .withFailureHandler(err => { 
+        DOM.loadingOverlay.style.display = "none"; 
+        DOM.status.innerText = "Gặp sự cố đường truyền khi lưu!";
+        alert("Lỗi tác vụ lưu: " + err); 
+      })
+      .luuBaoGiangHeThong(nam, truong, gv, timeInfo, hotInstance.getSourceData(), mangMaTranAnBuoi);
+  });
+
+  document.getElementById("btApDungTKB").addEventListener("click", function() {
+    if (!hotInstance) return;
+    const nam = DOM.namhoc.value, truong = DOM.truonghoc.value, gv = DOM.giaovien.value, tuanHienTai = parseInt(DOM.tuan.value, 10);
+    if (!nam || !truong || !gv) { alert("Vui lòng chọn thông tin nhân sự!"); return; }
+    if (tuanHienTai >= 35) { alert("Chỉ sao chép khung từ tuần bé hơn 35!"); return; }
+    if (!confirm(`Hệ thống sẽ nhân bản TKB môn/lớp tuần ${tuanHienTai} áp dụng hàng loạt đến hết tuần 35. Xác nhận?`)) return;
+
+    DOM.status.innerText = "Đang nhân bản ma trận thời khóa biểu liên tuần...";
+    DOM.loadingOverlay.style.display = "flex";
+    google.script.run
+      .withSuccessHandler(msg => { DOM.loadingOverlay.style.display = "none"; DOM.status.innerText = msg; alert(msg); })
+      .withFailureHandler(err => { DOM.loadingOverlay.style.display = "none"; alert("Lỗi nhân bản: " + err); })
+      .apDungTKBToanNam(nam, truong, gv, tuanHienTai, hotInstance.getData());
+  });
+
+  document.getElementById("btInLich")?.addEventListener("click", function() {
+    if (!hotInstance) return;
+    const nam = DOM.namhoc.value, truong = DOM.truonghoc.value, gv = DOM.giaovien.value, tuNgay = DOM.tuan_tungay.value, tuanVal = DOM.tuan.value; 
+    if (!nam || !truong || !gv) { alert("Vui lòng cấu hình nhân sự trước!"); return; }
+
+    DOM.status.innerText = "Hệ thống đang kết xuất file PDF chuẩn in...";
+    DOM.loadingOverlay.style.display = "flex";
+
+    let mangMaTranAnBuoi = Array(12).fill(false);
+    document.querySelectorAll(".chk-an-buoi").forEach(chk => mangMaTranAnBuoi[parseInt(chk.getAttribute("data-index"), 10)] = chk.checked);
+
+    google.script.run
+      .withSuccessHandler(function(res) {
+        if (res?.thanhCong) {
+          try {
+            const byteCharacters = atob(res.pdfBase64);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) byteNumbers[i] = byteCharacters.charCodeAt(i);
+            const fileBlob = new Blob([new Uint8Array(byteNumbers)], { type: 'application/pdf' });
+            window.open(URL.createObjectURL(fileBlob), "_blank");
+            DOM.loadingOverlay.style.display = "none"; DOM.status.innerText = "Đã in PDF thành công ra tab mới.";
+          } catch (e) { DOM.loadingOverlay.style.display = "none"; alert("Lỗi file ảo: " + e.message); }
+        } else { DOM.loadingOverlay.style.display = "none"; alert("Lỗi máy chủ: " + res.error); }
+      })
+      .xuLyTaoBanInPDF(nam, truong, gv, tuNgay, tuanVal, mangMaTranAnBuoi, hotInstance.getData()); 
+  });
+
+  document.getElementById("btXuatMau")?.addEventListener("click", () => taiFileTuDongNgam("https://docs.google.com/spreadsheets/d/1JwK1CJb3LD6GBwwC0AAvkkLs7iNKeVGq2SAYt6FzNjg/export?format=xlsx", "Bieu_Mau_PPCT_1.xlsx"));
+  document.getElementById("btXuatMau2")?.addEventListener("click", () => taiFileTuDongNgam("https://docs.google.com/spreadsheets/d/1G-PhwlJMCAypmL22nRjQhs1UYsodIShqAB9AtYfIEZg/export?format=xlsx", "Bieu_Mau_PPCT_2.xlsx"));
+
+  function taiFileTuDongNgam(url, name) {
+    const a = document.createElement("a"); a.href = url; a.setAttribute("download", name); a.click();
+  }
+
+  // --- 8. PHÂN TÍCH NHẬP FILE PPCT TRỰC TIẾP ---
+  // --- 8. PHÂN TÍCH NHẬP FILE PPCT TRỰC TIẾP ---
+  document.getElementById("btNhapPPCT").addEventListener("click", function() {
+    if (!DOM.namhoc.value || !DOM.truonghoc.value || !DOM.giaovien.value || !DOM.monhoc_cbo.value || !DOM.khoihoc_cbo.value) {
+      alert("Vui lòng cấu hình đầy đủ thông tin & Môn/Khối lớp!"); return;
+    }
+    DOM.fileInputPPCT.click();
+  });
+
+  DOM.fileInputPPCT.addEventListener("change", function(e) {
+    const file = e.target.files[0]; if (!file) return;
+    DOM.status.innerText = "Hệ thống đang tiến hành rà soát thuật toán phân tích và thiết lập lại STT PPCT...";
+    const reader = new FileReader();
+
+    reader.onload = function(e) {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+        
+        const rawRows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+        if (rawRows.length <= 1) { alert("Tệp Excel trống hoặc không có dữ liệu!"); return; }
+
+        let tempParsedRows = []; 
+
+        for (let i = 1; i < rawRows.length; i++) {
+          let row = rawRows[i] || [];
+          let tenBaiDay = row[1] ? row[1].toString().trim() : "";
+          
+          if (tenBaiDay === "") continue; 
+
+          let soTietGocRaw = row[2] ? row[2].toString().trim() : "";
+          let laChuDe = (soTietGocRaw === "");
+
+          if (laChuDe) {
+            // 🌟 SỬA LỖI: Thay currentItem.ten thành biến tenBaiDay đã được định nghĩa ở trên
+            tempParsedRows.push({ laChuDe: true, warm: tenBaiDay, ten: tenBaiDay });
+          } else {
+            let soTietGoc = parseInt(soTietGocRaw, 10);
+            if (!isNaN(soTietGoc) && soTietGoc > 1) {
+              for (let j = 0; j < soTietGoc; j++) {
+                tempParsedRows.push({ laChuDe: false, ten: tenBaiDay });
+              }
+            } else {
+              tempParsedRows.push({ laChuDe: false, ten: tenBaiDay });
+            }
+          }
+        }
+
+        let processedWithTitles = []; 
+        let i = 0;
+
+        while (i < tempParsedRows.length) {
+          let currentItem = tempParsedRows[i];
+
+          if (currentItem.laChuDe) {
+            processedWithTitles.push({ laChuDe: true, warm: currentItem.ten, ten: currentItem.ten });
+            i++;
+            continue;
+          }
+
+          let j = i;
+          while (j < tempParsedRows.length && !tempParsedRows[j].laChuDe && tempParsedRows[j].ten === currentItem.ten) {
+            j++;
+          }
+
+          let tongSoDongLienTiep = j - i;
+
+          if (tongSoDongLienTiep > 1) {
+            for (let k = 1; k <= tongSoDongLienTiep; k++) {
+              processedWithTitles.push({ laChuDe: false, ten: `${currentItem.ten} (t${k})` });
+            }
+          } else {
+            processedWithTitles.push({ laChuDe: false, ten: currentItem.ten });
+          }
+
+          i = j; 
+        }
+
+        let matrixCheckedData = [];
+        let sttDemPPCT = 1; 
+
+        processedWithTitles.forEach(item => {
+          if (item.laChuDe) {
+            matrixCheckedData.push(["", item.ten, ""]);
+          } else {
+            matrixCheckedData.push([sttDemPPCT, item.ten, 1]);
+            sttDemPPCT++;
+          }
+        });
+
+        if (matrixCheckedData.length === 0) { alert("Không tìm thấy dữ liệu PPCT hợp lệ sau rà soát!"); return; }
+
+        DOM.status.innerText = `Rà soát hoàn tất! Thiết lập thành công ${sttDemPPCT - 1} tiết PPCT tuần tự.`;
+        DOM.loadingOverlay.style.display = "flex";
+
+        google.script.run
+          .withSuccessHandler(msg => { 
+            DOM.loadingOverlay.style.display = "none"; 
+            DOM.status.innerText = msg; 
+            alert(msg); 
+            DOM.fileInputPPCT.value = ""; 
+            taiLichPPCTDeXem(); 
+          })
+          .withFailureHandler(err => { 
+            DOM.loadingOverlay.style.display = "none"; 
+            alert("Lỗi máy chủ chèn PPCT: " + err); 
+          })
+          .importPPCTFromServer(
+            DOM.namhoc.value, 
+            DOM.truonghoc.value, 
+            DOM.giaovien.value, 
+            DOM.monhoc_cbo.value, 
+            DOM.khoihoc_cbo.value, 
+            matrixCheckedData
+          );
+
+      } catch (ex) { 
+        DOM.loadingOverlay.style.display = "none";
+        alert("Lỗi cấu trúc tệp hoặc thư viện phân tích: " + ex.message); 
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  });
+
+  // --- 9. ĐỔI MẬT KHẨU ---
+  document.getElementById("btDoiMatKhau").addEventListener("click", function(e) {
+    e.preventDefault();
+    if (!DOM.namhoc.value || !DOM.truonghoc.value || !DOM.giaovien.value) { alert("Vui lòng chọn thông tin giáo viên trước!"); return; }
+    document.getElementById("txtMatKhauCu").value = ""; document.getElementById("txtMatKhauMoi").value = ""; document.getElementById("txtXacNhanMatKhau").value = "";
+    DOM.modalDoiMatKhau.style.display = "flex";
+  });
+
+  document.getElementById("btnHuyDoiMk").addEventListener("click", () => DOM.modalDoiMatKhau.style.display = "none");
+
+  document.getElementById("btnXacNhanDoiMk").addEventListener("click", function() {
+    const oldP = document.getElementById("txtMatKhauCu").value.trim(), newP = document.getElementById("txtMatKhauMoi").value.trim(), cP = document.getElementById("txtXacNhanMatKhau").value.trim();
+    if (newP.length < 8) { alert("Mật khẩu mới yêu cầu tối thiểu 8 ký tự!"); return; }
+    if (newP !== cP) { alert("Mật khẩu xác nhận không trùng khớp!"); return; }
+
+    DOM.modalDoiMatKhau.style.display = "none"; DOM.status.innerText = "Đang cập nhật mật khẩu lên máy chủ..."; DOM.loadingOverlay.style.display = "flex";
+
+    google.script.run
+      .withSuccessHandler(res => {
+        DOM.loadingOverlay.style.display = "none"; alert(res.tinNhan);
+        if (res.thanhCong) DOM.status.innerText = "Đổi mật khẩu thành công.";
+        else DOM.modalDoiMatKhau.style.display = "flex";
+      })
+      .capNhatMatKhauMoi(DOM.namhoc.value, DOM.truonghoc.value, DOM.giaovien.value, oldP, newP);
+  });
+
+ // --- 10. TÍNH NĂNG QUẢN TRỊ ADMIN (THÊM GV & RESET MK) ---
+  DOM.btnCapNhat?.addEventListener("click", function() {
+    const nam = DOM.namhoc.value;
+    const truong = DOM.truonghoc.value;
+    const gvHienTai = DOM.giaovien.value;
+
+    if (!nam || !truong || !gvHienTai) {
+      alert("Hệ thống chưa nạp đủ thông tin phiên thao tác!");
+      return;
+    }
+
+    let tenGvNhap = prompt(`[HỆ THỐNG] Đang tạo tài liệu báo giảng riêng cho:\nNăm học: ${nam}\nTrường: ${truong}\n\nVui lòng nhập họ và tên Giáo viên mới để đặt tên file:`);
+    if (tenGvNhap === null) {
+      DOM.status.innerText = "Đã hủy bỏ tiến trình cập nhật.";
+      return; 
+    }
+
+    tenGvNhap = tenGvNhap.trim();
+    if (tenGvNhap === "") {
+      alert("Tên giáo viên không được phép bỏ trống!");
+      return;
+    }
+
+    DOM.status.innerText = "Đang rà soát bảo mật lớp Server, dựng thư mục và nhân bản file mẫu...";
+    DOM.loadingOverlay.style.display = "flex";
+
+    google.script.run
+      .withSuccessHandler(function(res) {
+        DOM.loadingOverlay.style.display = "none";
+        alert(res.tinNhan);
+        
+        if (res.thanhCong) {
+          DOM.status.innerText = `Đã thêm giáo viên ${tenGvNhap} vào hệ thống thành công.`;
+          
+          // Tải lại toàn bộ danh mục từ Sheet để cập nhật cả combobox chính lẫn combobox admin reset
+          google.script.run
+            .withSuccessHandler(function(data) {
+              nguonDuLieuForm = data;
+              
+              // 🌟 CẢI TIẾN: Làm mới danh sách giáo viên ở combobox chính trên giao diện
+              if (window.lamMoiComboboxGiaoVienChinh) {
+                window.lamMoiComboboxGiaoVienChinh(nam, truong);
+              }
+              
+              // Làm mới danh sách ở vùng Admin Reset mật khẩu
+              capNhatComboboxAdminReset(nam, truong); 
+            })
+            .getListDataDataFromSheet();
+        } else {
+          DOM.status.innerText = "Cập nhật thất bại: " + res.tinNhan;
+        }
+      })
+      .withFailureHandler(function(err) {
+        DOM.loadingOverlay.style.display = "none";
+        DOM.status.innerText = "Lỗi đường truyền đồng bộ máy chủ!";
+        alert("Sự cố hệ thống không mong muốn: " + err.toString());
+      })
+      // 🌟 SỬA THAM SỐ: Khớp chuẩn 3 tham số đầu vào với cấu trúc hàm trên Code.gs
+      .xuLyCapNhatVaNhanBanFile(nam, truong, tenGvNhap);
+  });
+
+  DOM.btCapLaiMkAdmin?.addEventListener("click", function() {
+    const nam = DOM.namhoc.value;
+    const truong = DOM.truonghoc.value;
+    const gvHienTai = DOM.giaovien.value;
+    const cboReset = DOM.cboGvCapLaiMk;
+    const gvCanReset = cboReset ? cboReset.value : "";
+
+    if (!gvCanReset) {
+      alert("Vui lòng chọn giáo viên cần cấp lại mật khẩu!");
+      return;
+    }
+
+    if (!confirm(`HỆ THỐNG XÁC THỰC QUẢN TRỊ\n\nBạn có chắc chắn muốn đưa mật khẩu của giáo viên [ ${gvCanReset} ] về mặc định là: 12345678?`)) {
+      return;
+    }
+
+    DOM.status.innerText = "Đang kiểm tra bảo mật máy chủ và thực hiện ghi đè mật khẩu...";
+    DOM.loadingOverlay.style.display = "flex";
+
+    google.script.run
+      .withSuccessHandler(function(res) {
+        DOM.loadingOverlay.style.display = "none";
+        alert(res.tinNhan);
+        if (res.thanhCong) {
+          DOM.status.innerText = `Đã đưa mật khẩu giáo viên ${gvCanReset} về 12345678 thành công.`;
+          cboReset.value = ""; 
+        } else {
+          DOM.status.innerText = "Yêu cầu cấp lại mật khẩu bị từ chối.";
+        }
+      })
+      .withFailureHandler(function(err) {
+        DOM.loadingOverlay.style.display = "none";
+        DOM.status.innerText = "Lỗi kết nối máy chủ đường truyền!";
+        alert("Sự cố đồng bộ: " + err.toString());
+      })
+      .xuLyCapLaiMatKhauAdmin(nam, truong, gvCanReset, gvHienTai);
+  });
+
+  // --- 11. BỘ LỌC TÌM KIẾM TRÊN LƯỚI ---
+  function xulyTimKiemNhanhTrenLuoi() {
+    if (!hotInstance) return;
+    hotInstance.render();
+    DOM.status.innerText = "Đang áp dụng bộ lọc ký tự trên lưới trực tuyến.";
+  }
+
+  function thucHienXuatExcelLuoiBaoGiang() {
+    if (!hotInstance) return;
+    try {
+      const dataLuoi = hotInstance.getData();
+      const tieuDeCot = ["Thứ/Buổi", "Tiết", "Môn Học", "Lớp", "Tiết PPCT", "Tên Bài Dạy", "Điều chỉnh", "Nghỉ"];
+      
+      const mangDuLieuExcel = [tieuDeCot].concat(dataLuoi.map(row => [
+        row[0] || "",
+        row[1] || "",
+        row[2] || "",
+        row[3] || "",
+        row[4] || "",
+        row[5] || "",
+        row[6] || "",
+        row[7] === true ? "X" : ""
+      ]));
+
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.aoa_to_sheet(mangDuLieuExcel);
+      XLSX.utils.book_append_sheet(wb, ws, "Lich_Bao_Giang_Tuan");
+      
+      const tenFile = `LichBaoGiang_Tuan_${DOM.tuan.value || 1}.xlsx`;
+      XLSX.writeFile(wb, tenFile);
+      DOM.status.innerText = "Đã xuất dữ liệu Excel tuần thành công.";
+    } catch (err) {
+      alert("Gặp sự cố khi kết xuất bảng tính Excel nhanh: " + err.message);
+    }
+  }
+  // 🌟 HÀM MỚI: NẠP LẠI TOÀN BỘ DANH SÁCH GIÁO VIÊN VÀO COMBOBOX CHÍNH (DÀNH CHO ADMIN)
+// 🌟 CẬP NHẬT: GỌI DATA TRỰC TIẾP TỪ SERVER ĐỂ ĐỔ ĐẦY ĐỦ LIST GV CHO ADMIN
+window.lamMoiComboboxGiaoVienChinh = function(nam, truong) {
+  // Lưu lại tên giáo viên đang thao tác hiện tại
+  const gvHienTai = DOM.giaovien.value;
+  
+  // Gọi trực tiếp hàm lấy danh mục từ máy chủ để lấy bản đồ nhân sự đầy đủ
+  google.script.run
+    .withSuccessHandler(function(data) {
+      if (data && data.banDoHeThong && data.banDoHeThong[nam] && data.banDoHeThong[nam][truong]) {
+        
+        // Cập nhật lại biến nguồn chung của hệ thống để đồng bộ dữ liệu
+        nguonDuLieuForm = data;
+        
+        // Lấy danh sách giáo viên thuộc Năm học và Trường học này
+        const dsGiaoVienTruong = data.banDoHeThong[nam][truong];
+        
+        // Xóa sạch tùy chọn cũ trong combobox
+        DOM.giaovien.innerHTML = '<option value="">-- Chọn Giáo viên --</option>';
+        
+        // Vòng lặp đổ toàn bộ danh sách giáo viên vào combobox
+        dsGiaoVienTruong.forEach(gvObj => {
+          if (gvObj && gvObj.ten) {
+            const option = document.createElement("option");
+            option.value = gvObj.ten;
+            option.text = gvObj.ten;
+            DOM.giaovien.appendChild(option);
+          }
+        });
+        
+        // Khôi phục lại đúng tên giáo viên đang chọn ban đầu
+        DOM.giaovien.value = gvHienTai;
+        DOM.status.innerText = `[QUẢN TRỊ] Đã tải thành công danh sách ${dsGiaoVienTruong.length} giáo viên của trường.`;
+      }
+    })
+    .getListDataDataFromSheet(); // Hàm gốc trong Code.gs của bạn
+};
+function luuThongTinDangNhap() {
+      const isRemember = document.getElementById('chkNhoDangNhap').checked;
+      if (isRemember) {
+        localStorage.setItem('login_nam', document.getElementById('login_nam').value);
+        localStorage.setItem('login_truong', document.getElementById('login_truong').value);
+        localStorage.setItem('login_gv', document.getElementById('login_gv').value);
+        localStorage.setItem('login_pass', document.getElementById('login_pass').value);
+        localStorage.setItem('login_remember', 'true');
+      } else {
+        localStorage.removeItem('login_nam');
+        localStorage.removeItem('login_truong');
+        localStorage.removeItem('login_gv');
+        localStorage.removeItem('login_pass');
+        localStorage.setItem('login_remember', 'false');
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      const loginForm = document.getElementById('frmDangNhap');
+      if (loginForm) {
+        loginForm.addEventListener('submit', function() {
+          luuThongTinDangNhap();
+        });
+      }
+      taiThongTinDangNhap();
+    });
+
+    function taiThongTinDangNhap() {
+      const isRemember = localStorage.getItem('login_remember');
+      if (isRemember === 'true') {
+        document.getElementById('chkNhoDangNhap').checked = true;
+        document.getElementById('login_pass').value = localStorage.getItem('login_pass') || '';
+        tuDongChonSelect('login_nam', localStorage.getItem('login_nam'));
+        tuDongChonSelect('login_truong', localStorage.getItem('login_truong'));
+        tuDongChonSelect('login_gv', localStorage.getItem('login_gv'));
+      }
+    }
+
+    function tuDongChonSelect(id, valueToSelect) {
+      if (!valueToSelect) return;
+      const el = document.getElementById(id);
+      if (!el) return;
+      
+      if (Array.from(el.options).some(opt => opt.value === valueToSelect)) {
+        el.value = valueToSelect;
+        el.dispatchEvent(new Event('change'));
+        return;
+      }
+      
+      const observer = new MutationObserver((mutations, obs) => {
+        if (Array.from(el.options).some(opt => opt.value === valueToSelect)) {
+          el.value = valueToSelect;
+          el.dispatchEvent(new Event('change'));
+          obs.disconnect(); 
+        }
+      });
+      observer.observe(el, { childList: true });
+    }
+
+</script>
