@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/vn.js"></script>
+  <base target="_top">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kế hoạch dạy học theo tuần</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/handsontable/dist/handsontable.full.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/handsontable/dist/handsontable.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  
+  <?!= include('Style'); ?>
+  
+ 
+</head>
+<body>
+  
+  <div id="loginScreen" class="login-wrapper">
+    <div class="login-card">
+      <div class="login-header">
+        <h3>Đăng nhập</h3>
+      </div>
+      
+      <form id="frmDangNhap" onsubmit="thucHienDangNhap(event)" class="login-form-body">
+        <div class="input-group-custom">
+          <label>Năm học</label>
+          <select id="login_nam" class="form-control" required>
+            <option value="">-- Đang tải dữ liệu --</option>
+          </select>
+        </div>
+
+        <div class="input-group-custom">
+          <label>Trường học</label>
+          <select id="login_truong" class="form-control" required>
+            <option value="">-- Chọn trường học --</option>
+          </select>
+        </div>
+
+        <div class="input-group-custom">
+          <label>Tên đăng nhập (Giáo viên)</label>
+          <select id="login_gv" name="username" autocomplete="username" class="form-control" required>
+            <option value="">-- Chọn giáo viên --</option>
+          </select>
+        </div>
+
+        <div class="input-group-custom" style="position: relative;">
+          <label>Mật khẩu</label>
+          <input type="password" id="login_pass" name="password" autocomplete="current-password" class="form-control" placeholder="Nhập mật khẩu">
+          <i id="togglePass" class="fa-solid fa-eye" style="position: absolute; right: 15px; top: 42px; cursor: pointer; color: #6c757d;"></i>
+        </div>
+
+        <div class="input-group-custom" style="display: flex; align-items: center; gap: 8px; margin-top: 10px; margin-bottom: 15px;">
+          <input type="checkbox" id="chkNhoDangNhap" style="width: auto; margin: 0; cursor: pointer;">
+          <label for="chkNhoDangNhap" style="margin: 0; cursor: pointer; font-weight: normal; font-size: 14px; color: #495057;">Ghi nhớ đăng nhập trên máy này</label>
+        </div>
+
+        <button type="submit" id="btnLoginSubmit" class="btn-login-submit">ĐĂNG NHẬP</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="appMainForm" style="display: none;">
+    
+    <header class="app-header">
+      <div class="header-container">
+        <div class="brand-info">
+          <h1>KẾ HOẠCH DẠY HỌC THEO TUẦN</h1>
+          <p>QUẢN LÝ TỰ ĐỘNG</p>
+        </div>
+        <div class="system-info" style="text-align: right;">
+          <span class="badge"><i class="fa-solid fa-cloud"></i> Quản lý trực tuyến</span>
+          <div style="font-size: 11px; font-weight: bold; color: #495057; margin-top: 5px; letter-spacing: 0.5px;"><i class="fa-solid fa-phone"></i> SĐT: 0988297959</div>
+        </div>
+      </div>
+    </header>
+
+    <main class="app-container">
+      <form id="frmBaoGiang" onsubmit="event.preventDefault();">
+        <div class="config-grid">
+          
+          <div class="card">
+            <div class="card-header">
+              <i class="fa-solid fa-sliders"></i> Cấu hình thời gian & thông tin nhân sự
+            </div>
+            <div class="card-body form-grid">
+              <div class="form-group">
+                <label><i class="fa-solid fa-calendar-days"></i> Năm học</label>
+                <select id="namhoc" class="form-control"></select>
+              </div>
+              <div class="form-group">
+                <label><i class="fa-solid fa-school"></i> Chọn Trường học</label>
+                <select id="truonghoc" class="form-control"></select>
+              </div>
+              <div class="form-group">
+                <label><i class="fa-solid fa-calendar-check"></i> Ngày bắt đầu năm học</label>
+                <input type="text" id="ngaybatdau" class="form-control text-center" placeholder="dd/mm/yyyy">
+              </div>
+              <div class="form-group">
+                <label><i class="fa-solid fa-user-tie"></i> Giáo viên giảng dạy</label>
+                <select id="giaovien" class="form-control"></select>
+              </div>
+              
+              <div class="form-group col-span-2-md">
+                <div class="time-flex-container" style="display: flex; gap: 8px; width: 100%;">
+                  <div class="time-flex-item" style="flex: 1; max-width: 90px;">
+                    <label><i class="fa-solid fa-list-ol"></i> Tuần thứ</label>
+                    <input type="number" id="tuan" class="form-control text-center" value="1" min="1" max="35">
+                  </div>
+                  <div class="time-flex-item" style="flex: 2;">
+                    <label style="color: #1a73e8;"><i class="fa-solid fa-calendar-day"></i> Từ ngày (Thứ 2):</label>
+                    <input type="text" id="tuan_tungay" class="form-control text-center" readonly style="background-color: #e9ecef; font-weight: bold;" placeholder="dd/mm/yyyy">
+                  </div>
+                  <div class="time-flex-item" style="flex: 2;">
+                    <label style="color: #1a73e8;"><i class="fa-solid fa-calendar-day"></i> Đến ngày (Thứ 7):</label>
+                    <input type="text" id="tuan_denngay" class="form-control text-center" readonly style="background-color: #e9ecef; font-weight: bold;" placeholder="dd/mm/yyyy">
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-group col-span-2-md">
+                <label>Thời gian nghỉ Tết (Từ ngày / Đến ngày)</label>
+                <div class="range-group">
+                  <input type="text" id="tettu" class="form-control text-center" placeholder="dd/mm/yyyy">
+                  <span class="range-split">giáp</span>
+                  <input type="text" id="tetden" class="form-control text-center" placeholder="dd/mm/yyyy">
+                </div>
+              </div>
+
+              <div class="form-group col-span-2-md text-danger-group" style="position: relative;">
+                <label><i class="fa-solid fa-eye-slash"></i> Trạng thái hiển thị buổi dạy</label>
+                <div class="custom-dropdown-danger">
+                  <div id="cboAnBuoiLabel" class="form-control control-danger custom-dropdown-button" style="cursor: pointer; user-select: none;">
+                    -- Hiển thị đầy đủ tất cả các buổi (Tích chọn để ẨN) --
+                  </div>
+                  <div id="cboAnBuoiMenu" class="custom-dropdown-content" style="display: none; position: absolute; z-index: 1000; background: white; border: 1px solid #ced4da; border-radius: 4px; padding: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); width: 100%; max-width: 450px;">
+                    <div class="matrix-grid-title" style="font-size: 11px; font-weight: bold; color: #c92a2a; margin-bottom: 6px; text-align: center;">ĐÁNH DẤU TÍCH VÀO BUỔI MUỐN ẨN TRÊN LƯỚI</div>
+                    <table class="matrix-table" style="width: 100%; border-collapse: collapse; font-size: 12px; text-align: center;">
+                      <thead>
+                        <tr style="background: #f8f9fa;">
+                          <th style="padding: 4px; border: 1px solid #dee2e6;">Buổi</th>
+                          <th style="padding: 4px; border: 1px solid #dee2e6;">T2</th>
+                          <th style="padding: 4px; border: 1px solid #dee2e6;">T3</th>
+                          <th style="padding: 4px; border: 1px solid #dee2e6;">T4</th>
+                          <th style="padding: 4px; border: 1px solid #dee2e6;">T5</th>
+                          <th style="padding: 4px; border: 1px solid #dee2e6;">T6</th>
+                          <th style="padding: 4px; border: 1px solid #dee2e6;">T7</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td class="matrix-session-title" style="padding: 6px; border: 1px solid #dee2e6; font-weight: bold; background: #f8f9fa;">Sáng</td>
+                          <td style="border: 1px solid #dee2e6;"><input type="checkbox" class="chk-an-buoi" data-index="0"></td>
+                          <td style="border: 1px solid #dee2e6;"><input type="checkbox" class="chk-an-buoi" data-index="2"></td>
+                          <td style="border: 1px solid #dee2e6;"><input type="checkbox" class="chk-an-buoi" data-index="4"></td>
+                          <td style="border: 1px solid #dee2e6;"><input type="checkbox" class="chk-an-buoi" data-index="6"></td>
+                          <td style="border: 1px solid #dee2e6;"><input type="checkbox" class="chk-an-buoi" data-index="8"></td>
+                          <td style="border: 1px solid #dee2e6;"><input type="checkbox" class="chk-an-buoi" data-index="10"></td>
+                        </tr>
+                        <tr>
+                          <td class="matrix-session-title" style="padding: 6px; border: 1px solid #dee2e6; font-weight: bold; background: #f8f9fa;">Chiều</td>
+                          <td style="border: 1px solid #dee2e6;"><input type="checkbox" class="chk-an-buoi" data-index="1"></td>
+                          <td style="border: 1px solid #dee2e6;"><input type="checkbox" class="chk-an-buoi" data-index="3"></td>
+                          <td style="border: 1px solid #dee2e6;"><input type="checkbox" class="chk-an-buoi" data-index="5"></td>
+                          <td style="border: 1px solid #dee2e6;"><input type="checkbox" class="chk-an-buoi" data-index="7"></td>
+                          <td style="border: 1px solid #dee2e6;"><input type="checkbox" class="chk-an-buoi" data-index="9"></td>
+                          <td style="border: 1px solid #dee2e6;"><input type="checkbox" class="chk-an-buoi" data-index="11"></td>
+                        </tr>
+                      </tbody>
+                    </table>
+                    <div style="text-align: center; padding-top: 8px;">
+                      <button type="button" id="btnResetBoLoc" class="btn btn-danger btn-sm" style="font-size:11px; height:24px; padding: 2px 8px;">Hiện lại hết</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header"><i class="fa-solid fa-book-open"></i> Kế hoạch dạy học theo môn (PPCT)</div>
+            <div class="card-body" style="display: flex; flex-direction: column; gap: 15px; justify-content: space-between;">
+              <div style="display: flex; gap: 10px; flex-wrap: wrap; width: 100%;">
+                <div class="form-group" style="flex: 1; min-width: 140px;">
+                  <label for="monhoc_cbo">Chọn Môn học</label>
+                  <select id="monhoc_cbo" class="form-control"><option value="">-- Chọn Môn học --</option></select>
+                </div>
+                <div class="form-group" style="flex: 1; min-width: 120px;">
+                  <label for="khoihoc_cbo">Chọn Khối lớp</label>
+                  <select id="khoihoc_cbo" class="form-control">
+                    <option value="">-- Chọn Khối --</option>
+                    <option value="Khối 6">Khối 6</option>
+                    <option value="Khối 7">Khối 7</option>
+                    <option value="Khối 8">Khối 8</option>
+                    <option value="Khối 9">Khối 9</option>
+                  </select>
+                </div>
+              </div>
+              
+              <div class="button-group-ppct" style="display: flex; flex-direction: row; gap: 8px; width: 100%; flex-wrap: wrap; margin-bottom: 5px;">
+                <button id="btXemPPCT" class="btn btn-outline" type="button" style="flex: 1; min-width: 75px;"><i class="fa-solid fa-magnifying-glass"></i> Xem</button>
+                <button id="btNhapPPCT" class="btn btn-secondary" type="button" style="flex: 1; min-width: 75px;"><i class="fa-solid fa-file-import"></i> Nhập</button>
+                <button id="btXuatMau" class="btn btn-outline" type="button" style="flex: 1; min-width: 75px;"><i class="fa-solid fa-download"></i> Mẫu</button>
+                <button id="btXuatMau2" class="btn btn-outline" type="button" style="flex: 1; min-width: 75px;"><i class="fa-solid fa-download"></i> Mẫu 2</button>
+                <input type="file" id="fileInputPPCT" style="display: none;" accept=".xlsx, .xls">
+              </div>
+
+              <div id="gridPPCT" style="width: 100%; margin-top: 5px;"></div>
+            </div>
+          </div>
+        </div>
+      </form>
+
+      <div style="display: flex; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; width: 100%;">
+        
+        <div style="flex: 1.2; min-width: 320px; background: #ffffff; border: 1px solid #dee2e6; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.02); overflow: hidden;">
+          <div style="background: #f1f3f5; color: #495057; padding: 10px 12px; font-size: 12px; font-weight: bold; border-bottom: 1px solid #dee2e6;">
+            <i class="fa-solid fa-user" style="color: #6c757d;"></i> CHỨC NĂNG
+          </div>
+          <div style="display: flex; gap: 6px; padding: 12px; align-items: center; flex-wrap: wrap; background: #fafafa;">
+           
+            <button id="btMoi" class="btn-tight"><i class="fa-solid fa-file-circle-plus"></i> Tạo mới</button>
+            <button id="btLuu" class="btn-tight btn-tight-action"><i class="fa-solid fa-floppy-disk"></i> Lưu lịch</button>
+            <button id="btXemIn" class="btn-tight"><i class="fa-solid fa-file-pdf"></i> Xem in</button>
+            <button id="btInLich" class="btn-tight"><i class="fa-solid fa-print"></i> In tệp</button>
+            <button id="btDoiMatKhau" class="btn-tight"><i class="fa-solid fa-key"></i> Đổi Pass</button>
+             <button id="btApDungTKB" class="btn-tight" style="border-color: #ced4da;"><i class="fa-solid fa-copy"></i> Áp dụng TKB đến tuần 35</button>
+          </div>
+        </div>
+
+        <div id="vungAdminCapLaiMk" style="display: none; flex: 1; min-width: 380px; background: #ffffff; border: 1px solid #dee2e6; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.02); overflow: hidden;">
+          <div style="background: #f1f3f5; color: #343a40; padding: 10px 12px; font-size: 12px; font-weight: bold; border-bottom: 1px solid #dee2e6; display: flex; align-items: center; justify-content: space-between;">
+            <span><i class="fa-solid fa-user-shield" style="color: #fab005;"></i> QUẢN TRỊ HỆ THỐNG</span>
+            <span style="font-size: 10px; background: #e9ecef; color: #495057; padding: 1px 6px; border-radius: 3px; border: 1px solid #ced4da;">Admin</span>
+          </div>
+          
+          <div style="display: flex; gap: 8px; padding: 12px; background: #fafafa; align-items: center; justify-content: space-between; flex-wrap: wrap;">
+            <button id="btCapNhat" class="btn-tight" style="display: none;"><i class="fa-solid fa-user-plus"></i> Thêm</button>
+            
+            <select id="cboGvCapLaiMk" class="select-tight" style="flex: 1; min-width: 160px;">
+              <option value="">-- Lựa chọn Giáo viên --</option>
+            </select>
+
+            <div style="display: flex; gap: 4px;">
+              <button id="btCapLaiMkAdmin" class="btn-tight" style="background-color: #ffffff; border-color: #ced4da;">
+                <i class="fa-solid fa-unlock"></i> Cấp lại MK
+              </button>
+              <button type="button" id="btXoaGvAdmin" class="btn-tight" style="color: #e03131; border-color: #ffa8a8; background-color: #fff5f5;">
+                <i class="fa-solid fa-user-minus"></i> Xóa tài khoản
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div id="status-bar" class="status-wrapper">
+        <span class="status-title">Trạng thái:</span>
+        <span id="status" class="status-content">Hệ thống sẵn sàng thao tác.</span>
+      </div>
+
+      <div class="card grid-card">
+        <div class="card-header data-header">
+          <span><i class="fa-solid fa-table-list"></i> BẢNG NỘI DUNG CHI TIẾT TIẾT DẠY TRONG TUẦN</span>
+        </div>
+        <div class="card-body grid-wrapper">
+          <div id="grid"></div>
+        </div>
+      </div>
+      
+      <div id="printPreviewContainer" style="width: 100%; margin-top: 20px; margin-bottom: 30px;"></div>
+    </main>
+  </div>
+
+  <div id="loadingOverlay" style="display: none;">
+    <div class="spinner"></div>
+    <span id="loadingText">Hệ thống đang tải dữ liệu, vui lòng đợi...</span>
+  </div>
+
+  <div id="modalDoiMatKhau" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:9999; justify-content:center; align-items:center; backdrop-filter: blur(2px);">
+    <div style="background:white; padding:25px; border-radius:8px; width:400px; box-shadow:0 4px 15px rgba(0,0,0,0.2);">
+      <h4 style="margin-top:0; color:#b15000; border-bottom: 2px solid #e9ecef; padding-bottom: 10px;"><i class="fa-solid fa-key"></i> Thay đổi mật khẩu truy cập</h4>
+      
+      <div style="margin-bottom:15px; margin-top: 15px;">
+        <label style="font-weight: bold; font-size: 14px;">Mật khẩu hiện tại:</label>
+        <input type="password" id="txtMatKhauCu" placeholder="Nhập mật khẩu cũ (để trống nếu chưa có)" style="width:100%; padding:8px; margin-top:5px; border:1px solid #ccc; border-radius:4px; box-sizing: border-box;">
+        <small style="color: #6c757d; font-size: 12px;">*Nếu giáo viên chưa từng đặt mật khẩu ở cột L, hãy để trống ô này.</small>
+      </div>
+      
+      <div style="margin-bottom:15px;">
+        <label style="font-weight: bold; font-size: 14px;">Mật khẩu mới:</label>
+        <input type="password" id="txtMatKhauMoi" placeholder="Tối thiểu 8 ký tự" style="width:100%; padding:8px; margin-top:5px; border:1px solid #ccc; border-radius:4px; box-sizing: border-box;">
+      </div>
+      
+      <div style="margin-bottom:25px;">
+        <label style="font-weight: bold; font-size: 14px;">Xác nhận lại mật khẩu mới:</label>
+        <input type="password" id="txtXacNhanMatKhau" placeholder="Nhập lại mật khẩu mới" style="width:100%; padding:8px; margin-top:5px; border:1px solid #ccc; border-radius:4px; box-sizing: border-box;">
+      </div>
+      
+      <div style="text-align:right;">
+        <button type="button" id="btnHuyDoiMk" style="padding:8px 16px; border:none; border-radius:4px; background:#6c757d; color:white; cursor:pointer; margin-right:8px; font-weight: bold;">Hủy bỏ</button>
+        <button type="button" id="btnXacNhanDoiMk" style="padding:8px 16px; border:none; border-radius:4px; background:#198754; color:white; cursor:pointer; font-weight: bold;">Lưu thay đổi</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modalXacNhanMatKhau" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:9999; justify-content:center; align-items:center; backdrop-filter: blur(2px);">
+    <div style="background:white; padding:25px; border-radius:8px; width:380px; box-shadow:0 10px 25px rgba(0,0,0,0.3);">
+      <h4 style="margin-top:0; color:#dc3545; border-bottom: 2px solid #e9ecef; padding-bottom: 10px;"><i class="fa-solid fa-lock"></i> Xác thực Quyền truy cập</h4>
+      
+      <div style="margin-top: 15px; margin-bottom: 15px;">
+        <p style="font-size: 14px; margin-bottom: 8px;">Giáo viên: <strong id="lblTenGVDangNhap" style="color:#0d6efd; font-size: 16px;"></strong></p>
+        <input type="password" id="txtMatKhauDangNhap" placeholder="Nhập mật khẩu truy cập" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:4px; box-sizing: border-box; font-size: 14px;">
+        <small style="color: #6c757d; font-size: 12px; display: block; margin-top: 5px;">*Nếu giáo viên chưa cài mật khẩu, hãy để trống và nhấn Xác nhận.</small>
+      </div>
+      
+      <div style="text-align:right; margin-top: 20px;">
+        <button type="button" id="btnHuyDangNhap" style="padding:8px 16px; border:none; border-radius:4px; background:#6c757d; color:white; cursor:pointer; margin-right:8px; font-weight: bold;">Hủy bỏ</button>
+        <button type="button" id="btnXacNhanDangNhap" style="padding:8px 16px; border:none; border-radius:4px; background:#0d6efd; color:white; cursor:pointer; font-weight: bold;">Xác nhận</button>
+      </div>
+    </div>
+  </div>
+
+ 
+  <?!= include('Script'); ?>
+</body>
+
+</html>
